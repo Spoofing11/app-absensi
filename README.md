@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portal Absensi Composite
 
-## Getting Started
+Aplikasi Next.js dengan MySQL dan penyimpanan foto privat. Siapkan Node.js 20.9 atau lebih baru dan npm.
 
-First, run the development server:
+## Pengembangan lokal
+
+Gunakan .env.example sebagai acuan untuk .env.local. Jika sudah punya .env.local, tambahkan hanya pengaturan yang diperlukan. Isi DATABASE_URL dengan database lokal dan BETTER_AUTH_SECRET dengan secret acak minimal 32 karakter. Pertahankan STORAGE_DRIVER=local untuk menyimpan foto di folder storage.
 
 ```bash
+npm ci
+npm run db:migrate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy dari GitHub ke VPS
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Commit kode, folder drizzle, package.json, package-lock.json, dan .env.example. Periksa daftar file sebelum push. Kredensial dan foto lokal berada di luar repo.
+2. Clone repo di VPS atau tarik perubahan terbaru pada checkout yang sudah ada.
+3. Buat .env.local di VPS berdasarkan .env.example. Isi koneksi MySQL dan secret login VPS. Set APP_BASE_URL dan BETTER_AUTH_URL ke URL HTTPS aplikasi yang sama.
+4. Set STORAGE_DRIVER=minio dan lengkapi konfigurasi bucket privat composite-absensi. Jika membawa database lokal ke VPS, salin foto lama dengan nama objek yang sama terlebih dahulu. Lihat [panduan MinIO](docs/MINIO.md).
+5. Jalankan perintah berikut dari root project. Jika VPS sudah memakai pengelola proses, gunakan konfigurasi yang ada untuk menjalankan npm run start.
 
-## Learn More
+```bash
+npm ci
+npm run db:migrate
+npm run build
+npm run start
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Setelah aplikasi berjalan, cek login, unggah foto profil, dan absen masuk/pulang dari browser melalui domain HTTPS VPS.

@@ -1,0 +1,33 @@
+import Link from "next/link";
+import NotificationBell from "@/features/notifications/NotificationBell";
+import { Logo } from "@/components/brand/Logo";
+import AccountMenu from "./AccountMenu";
+import "./workspace.css";
+export default function WorkerShell({ user, canManage, children }) {
+  return (
+    <div className="admin-shell worker-shell">
+      <header className="worker-header">
+        <Link className="worker-brand" href="/dashboard">
+          <Logo size={38} />
+          <span>
+            <strong>COMPOSITE</strong>
+            <small>PORTAL ABSENSI</small>
+          </span>
+        </Link>
+        <div className="worker-header-actions">
+          {user.employeeType === "tukang" && <NotificationBell />}
+          {canManage && (
+            <Link className="admin-button secondary" href="/admin/dashboard">
+              Pengelolaan
+            </Link>
+          )}
+          <AccountMenu user={user} />
+        </div>
+      </header>
+      <main className="worker-main">{children}</main>
+      <footer className="admin-footer worker-footer">
+        PT Composite Interior Prima<span>Portal Absensi</span>
+      </footer>
+    </div>
+  );
+}

@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1793076415459,
+      "tag": "0000_sturdy_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1793352383372,
+      "tag": "0001_closed_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1793585525221,
+      "tag": "0002_right_power_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1793590732020,
+      "tag": "0003_light_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1793592610265,
+      "tag": "0004_charming_proemial_gods",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1793602947731,
+      "tag": "0005_user_attendance_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1793606276010,
+      "tag": "0006_daily_project_assignments",
+      "breakpoints": true
+    }
+  ]
+}

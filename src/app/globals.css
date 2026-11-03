@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  /* Warm architectural palette â€” travertine, walnut, bronze. */
+  --color-canvas: #f9f6f0;
+  --color-canvas-raised: #fcfaf6;
+  --color-surface: #f3efe6;
+  --color-surface-raised: #ede7da;
+  --color-surface-strong: #e2d9c8;
+
+  --color-ink: #2b2118;
+  --color-ink-soft: #665547;
+  --color-ink-muted: #6e6053;
+
+  --color-line: #e4dcd0;
+  --color-line-strong: #cebfab;
+
+  --color-bronze: #6e543e;
+  --color-bronze-soft: #8c6d53;
+  --color-terracotta: #a34e33;
+  --color-terracotta-bright: #c86d51;
+
+  --color-danger: #ba1a1a;
+  --color-danger-bg: #ffdad6;
+  --color-danger-text: #93000a;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  --shadow-soft: 0 16px 36px -8px rgba(43, 33, 24, 0.08),
+    0 4px 12px -2px rgba(43, 33, 24, 0.04);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--color-ink);
+    color: var(--color-canvas);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-ink);
+    box-shadow: 0 0 0 1000px var(--color-canvas-raised) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

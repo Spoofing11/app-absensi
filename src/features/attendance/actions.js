@@ -1,0 +1,213 @@
+"use server";
+import { randomUUID } from "node:crypto";
+import { storePhoto, deletePhoto } from "@/lib/server/photo-storage";
+import sharp from "sharp";
+import { eq } from "drizzle-orm";
+import { formatInTimeZone } from "date-fns-tz";
+import { db } from "@/lib/server/db";
+import { users, attendances, mediaFiles, roles } from "@/lib/server/db/schema";
+import { requireAttendanceUser } from "@/lib/server/auth/attendance";
+import { canUseAttendance } from "@/lib/shared/attendance-access";
+import { checkoutPolicy } from "./policy";
+import { currentAttendance } from "./queries";
+import { attendanceTiming } from "@/features/schedules/timing";
+import { resolveWorkSchedule } from "@/features/schedules/resolver";
+import { env } from "@/lib/server/env";
+
+function today() {
+  return formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd");
+}
+
+function summary(row) {
+  return row
+    ? {
+        lateSeconds: row.lateSeconds,
+        scheduledEndAt: row.scheduledEndAt.toISOString(),
+        earlySeconds: row.earlySeconds,
+        earlyReasonCategory: row.earlyReasonCategory,
+        earlyReasonText: row.earlyReasonText,
+        check_in_time: row.checkInAt?.toISOString(),
+        check_out_time: row.checkOutAt?.toISOString(),
+        check_in_photo: !!row.checkInPhotoId,
+        check_out_photo: !!row.checkOutPhotoId,
+      }
+    : null;
+}
+
+export async function attendanceContext() {
+  const user = await requireAttendanceUser();
+  const { row, workDate: date } = await currentAttendance(db, user.id);
+  const resolved = await resolveWorkSchedule(db, user);
+  const { schedule, assignment } = resolved;
+  const snapshot = row
+    ? {
+        name: row.scheduleNameSnapshot,
+        start: formatInTimeZone(
+          row.scheduledStartAt,
+          row.timezoneSnapshot,
+          "HH:mm",
+        ),
+        end: formatInTimeZone(
+          row.scheduledEndAt,
+          row.timezoneSnapshot,
+          "HH:mm",
+        ),
+      }
+    : null;
+  return {
+    user: { name: user.name, employeeType: user.employeeType },
+    date,
+    dateLabel: date.split("-").reverse().join("/"),
+    timezone: row?.timezoneSnapshot || env.APP_TIMEZONE,
+    schedule:
+      snapshot ||
+      (schedule
+        ? {
+            name: schedule.name,
+            start: schedule.startTime,
+            end: schedule.endTime,
+          }
+        : null),
+    scheduleSource: row ? "Jadwal saat absen masuk" : resolved.source,
+    project:
+      user.employeeType === "tukang"
+        ? row?.projectNameSnapshot
+          ? {
+              name: row.projectNameSnapshot,
+              address:
+                assignment?.projectId === row.projectId
+                  ? assignment.projectAddress
+                  : "Project saat absen masuk",
+            }
+          : assignment
+            ? {
+                name: assignment.projectName,
+                address: assignment.projectAddress,
+              }
+            : null
+        : null,
+    blockedReason: row ? "" : resolved.blockedReason,
+    serverNow: new Date().toISOString(),
+    attendance: summary(row),
+  };
+}
+
+export async function recordAttendance(kind, photo, reason = {}) {
+  const user = await requireAttendanceUser();
+  if (
+    !["in", "out"].includes(kind) ||
+    typeof photo !== "string" ||
+    photo.length > 900000 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(photo)
+  )
+    return { error: "Foto tidak valid atau terlalu besar." };
+  let file;
+  try {
+    const buffer = await sharp(Buffer.from(photo, "base64"), {
+      limitInputPixels: 20000000,
+    })
+      .resize({ width: 1280, withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer({ resolveWithObject: true });
+    const id = randomUUID();
+    const key = `${id}.jpg`;
+    await storePhoto(key, buffer.data);
+    file = key;
+    await db.transaction(async (tx) => {
+      const [freshUser] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+        .for("update");
+      if (!canUseAttendance(freshUser))
+        throw new Error("Absensi pribadi tidak aktif untuk akun Anda.");
+      const now = new Date();
+      const current = await currentAttendance(tx, user.id, now);
+      const existing = current.row;
+      const workDate = kind === "out" ? current.workDate : today();
+      if (kind === "in" && existing)
+        throw new Error("Anda sudah check-in hari ini.");
+      if (kind === "out" && (!existing || existing.checkOutAt))
+        throw new Error("Check-out tidak tersedia.");
+      const departure =
+        kind === "out"
+          ? checkoutPolicy(existing.scheduledEndAt, now, reason)
+          : null;
+      let values;
+      if (kind === "in") {
+        const resolved = await resolveWorkSchedule(tx, freshUser, workDate);
+        if (resolved.blockedReason) throw new Error(resolved.blockedReason);
+        const { schedule, assignment } = resolved;
+        const timing = attendanceTiming(
+          workDate,
+          schedule,
+          env.APP_TIMEZONE,
+          now,
+        );
+        const [accessRole] = freshUser.roleId
+          ? await tx
+              .select({ id: roles.id, name: roles.name })
+              .from(roles)
+              .where(eq(roles.id, freshUser.roleId))
+          : [];
+        const attendanceId = randomUUID();
+        values = {
+          id: attendanceId,
+          attendanceCode: `ATT-${attendanceId.slice(0, 8)}`,
+          userId: user.id,
+          workDate,
+          workScheduleId: schedule.id,
+          projectAssignmentId: assignment?.id,
+          projectId: assignment?.projectId,
+          userCodeSnapshot: user.userCode,
+          fullNameSnapshot: user.name,
+          roleSnapshot: freshUser.role,
+          roleIdSnapshot: accessRole?.id || null,
+          roleNameSnapshot: accessRole?.name || null,
+          scheduleCodeSnapshot: schedule.scheduleCode,
+          scheduleNameSnapshot: schedule.name,
+          timezoneSnapshot: env.APP_TIMEZONE,
+          projectCodeSnapshot: assignment?.projectCode,
+          projectNameSnapshot: assignment?.projectName,
+          ...timing,
+          checkInAt: now,
+          checkInPhotoId: id,
+        };
+      }
+      await tx.insert(mediaFiles).values({
+        id,
+        ownerUserId: user.id,
+        purpose: kind === "in" ? "check_in" : "check_out",
+        storageKey: key,
+        mimeType: "image/jpeg",
+        sizeBytes: buffer.data.length,
+        widthPx: buffer.info.width,
+        heightPx: buffer.info.height,
+        createdById: user.id,
+      });
+      if (kind === "in") await tx.insert(attendances).values(values);
+      else
+        await tx
+          .update(attendances)
+          .set({ checkOutAt: now, checkOutPhotoId: id, ...departure })
+          .where(eq(attendances.id, existing.id));
+    });
+    return { success: true };
+  } catch (error) {
+    if (file) await deletePhoto(file).catch(() => {});
+    const known = [
+      "Absensi pribadi tidak aktif untuk akun Anda.",
+      "Pulang lebih awal wajib memilih alasan dan mengisi keterangan 5–1000 karakter.",
+      "Anda sudah check-in hari ini.",
+      "Check-out tidak tersedia.",
+      "Jadwal kerja belum ditentukan. Hubungi Admin.",
+      "Jadwal kerja nonaktif. Hubungi Admin.",
+      "Anda belum memiliki penempatan project untuk tanggal kerja ini.",
+    ];
+    return {
+      error: known.includes(error.message)
+        ? error.message
+        : "Gagal menyimpan absensi. Periksa foto dan koneksi database.",
+    };
+  }
+}
