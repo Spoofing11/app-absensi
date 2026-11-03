@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   experimental: {
     agentFeedback: true,
     serverActions: { bodySizeLimit: "6mb" },

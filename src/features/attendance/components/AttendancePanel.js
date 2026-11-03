@@ -4,14 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Camera,
-  Clock3,
   MapPin,
   CheckCircle2,
   LogIn,
   LogOut,
   X,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -254,20 +252,7 @@ export default function AttendancePanel({ initialContext }) {
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">
-            {context.user.employeeType === "tukang"
-              ? "RUANG TUKANG"
-              : "RUANG KARYAWAN"}
-          </p>
           <h1>Selamat datang, {context.user.name}.</h1>
-          <p>Catat kehadiran dan lihat informasi kerja Anda hari ini.</p>
-        </div>
-        <div className="worker-date">
-          <Clock3 size={17} />
-          <span>
-            {context.dateLabel}
-            <small>{context.timezone}</small>
-          </span>
         </div>
       </div>
       {record?.lateSeconds > 0 && (
@@ -295,7 +280,7 @@ export default function AttendancePanel({ initialContext }) {
           {error}
         </Alert>
       )}
-      <div className="worker-grid">
+      <div className={context.user.employeeType === "tukang" ? "worker-grid" : undefined}>
         <section className="content-card attendance-card">
           <div className="attendance-card-heading">
             <div>
@@ -366,32 +351,8 @@ export default function AttendancePanel({ initialContext }) {
             {refreshing ? "Memperbarui..." : "Perbarui ringkasan"}
           </button>
         </section>
-        <div className="worker-aside">
-          <section className="content-card">
-            <div className="section-icon-heading">
-              <Clock3 size={18} />
-              <h2>Jadwal Kerja</h2>
-            </div>
-            {context.schedule ? (
-              <>
-                <p className="schedule-time">
-                  {context.schedule.start.slice(0, 5)} <span>—</span>{" "}
-                  {context.schedule.end.slice(0, 5)}
-                </p>
-                <p className="muted text-xs">
-                  {context.schedule.name} · {context.timezone}
-                  <br />
-                  {context.scheduleSource}
-                </p>
-              </>
-            ) : (
-              <p className="worker-help">
-                Jadwal belum tersedia. Hubungi Admin untuk menentukan jadwal
-                kerja Anda.
-              </p>
-            )}
-          </section>
-          {context.user.employeeType === "tukang" && (
+        {context.user.employeeType === "tukang" && (
+          <div className="worker-aside">
             <section className="content-card">
               <div className="section-icon-heading">
                 <MapPin size={18} />
@@ -409,20 +370,8 @@ export default function AttendancePanel({ initialContext }) {
                 </p>
               )}
             </section>
-          )}
-          <section className="content-card">
-            <div className="section-icon-heading">
-              <ShieldCheck size={18} />
-              <h2>Panduan Absensi</h2>
-            </div>
-            <ul className="attendance-rules">
-              <li>Pastikan wajah terlihat jelas.</li>
-              <li>Periksa foto sebelum menyimpan.</li>
-              <li>Absen masuk dan pulang masing-masing satu kali per hari.</li>
-              <li>Waktu dicatat saat absensi disimpan.</li>
-            </ul>
-          </section>
-        </div>
+          </div>
+        )}
       </div>
       <dialog
         ref={dialog}

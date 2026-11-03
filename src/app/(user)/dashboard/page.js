@@ -1,7 +1,6 @@
 import Link from "next/link";
 import UpcomingAssignments from "@/features/assignments/UpcomingAssignments";
 import { canUseAttendance } from "@/lib/shared/attendance-access";
-import PersonalHistory from "@/features/attendance-history/PersonalHistory";
 import { permissionsFor } from "@/lib/server/auth/permissions";
 import { requireUser } from "@/lib/server/auth/session";
 import WorkerShell from "@/components/app/WorkerShell";
@@ -11,7 +10,7 @@ import { FEATURES } from "@/lib/shared/permissions";
 
 export const metadata = { title: "Dashboard" };
 
-export default async function DashboardPage({ searchParams }) {
+export default async function DashboardPage() {
   const user = await requireUser();
   const permissions = await permissionsFor(user);
   const canManage = [
@@ -24,12 +23,11 @@ export default async function DashboardPage({ searchParams }) {
   ].some((f) => permissions[f]?.read);
   const canAttend = canUseAttendance(user);
   return (
-    <WorkerShell user={user} canManage={canManage}>
+    <WorkerShell user={user} canManage={canManage} hideFooter>
       {canAttend ? (
         <>
           <AttendancePanel initialContext={await attendanceContext()} />
           <UpcomingAssignments />
-          <PersonalHistory searchParams={await searchParams} />
         </>
       ) : (
         <>
@@ -63,7 +61,6 @@ export default async function DashboardPage({ searchParams }) {
           )}
         </>
       )}
-      {!canAttend && <PersonalHistory searchParams={await searchParams} />}
     </WorkerShell>
   );
 }

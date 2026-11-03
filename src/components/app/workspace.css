@@ -2568,3 +2568,67 @@ body:has(dialog[open]) {
     padding: 18px 16px;
   }
 }
+
+.attendance-analytics-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.attendance-analytics-projects > p {
+  margin: 8px 0 20px;
+  font-size: 13px;
+}
+.analytics-project-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 2fr) repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+  padding: 14px 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.analytics-project-head {
+  color: #796b5a;
+  font-size: 11px;
+  background: #faf7f2;
+}
+.analytics-project {
+  border-bottom: 1px solid #ede5db;
+}
+.analytics-project > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.analytics-project > summary::-webkit-details-marker {
+  display: none;
+}
+.analytics-project > summary:hover,
+.analytics-project[open] > summary {
+  background: #faf7f2;
+}
+.analytics-detail-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.analytics-mobile-label {
+  display: none;
+}
+@media (max-width: 840px) {
+  .attendance-analytics-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .analytics-project-head,
+  .analytics-desktop-label {
+    display: none;
+  }
+  .analytics-project-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .analytics-project-row > strong,
+  .analytics-detail-label {
+    grid-column: 1 / -1;
+  }
+  .analytics-mobile-label {
+    display: block;
+    font-size: 11px;
+    color: #796b5a;
+  }
+}

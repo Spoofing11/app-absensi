@@ -3,7 +3,7 @@ import NotificationBell from "@/features/notifications/NotificationBell";
 import { Logo } from "@/components/brand/Logo";
 import AccountMenu from "./AccountMenu";
 import "./workspace.css";
-export default function WorkerShell({ user, canManage, children }) {
+export default function WorkerShell({ user, canManage, children, hideFooter = false }) {
   return (
     <div className="admin-shell worker-shell">
       <header className="worker-header">
@@ -25,9 +25,11 @@ export default function WorkerShell({ user, canManage, children }) {
         </div>
       </header>
       <main className="worker-main">{children}</main>
-      <footer className="admin-footer worker-footer">
-        PT Composite Interior Prima<span>Portal Absensi</span>
-      </footer>
+      {!hideFooter && (
+        <footer className="admin-footer worker-footer">
+          PT Composite Interior Prima<span>Portal Absensi</span>
+        </footer>
+      )}
     </div>
   );
 }

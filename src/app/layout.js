@@ -16,6 +16,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
+  icons: { icon: "/images/Composite-Logo-Peanut.webp" },
   title: {
     default: "Portal Absensi",
     template: "%s · Portal Absensi",
