@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity } from "@/features/activity-logs/server";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -59,12 +60,19 @@ export async function saveSchedule(form) {
         scheduleCode: `SCH-${id.slice(0, 8)}`,
         createdById: actor.id,
       });
+    await recordActivity(tx, actor, "schedules", editing ? "edit" : "create", data.name);
   });
   revalidatePath("/", "layout");
 }
 export async function deleteSchedule(form) {
-  await requirePermission("schedules", "delete");
+  const actor = await requirePermission("schedules", "delete");
   const id = z.uuid().parse(form.get("id"));
-  await db.delete(workSchedules).where(eq(workSchedules.id, id));
+  await db.transaction(async (tx) => {
+    const [target] = await tx.select({ name: workSchedules.name }).from(workSchedules)
+      .where(eq(workSchedules.id, id)).for("update");
+    if (!target) return;
+    await tx.delete(workSchedules).where(eq(workSchedules.id, id));
+    await recordActivity(tx, actor, "schedules", "delete", target.name);
+  });
   revalidatePath("/schedules");
 }

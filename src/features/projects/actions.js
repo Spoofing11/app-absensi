@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity } from "@/features/activity-logs/server";
 import { assertActiveSchedule } from "@/features/schedules/validation";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -20,12 +21,15 @@ export async function saveProject(form) {
     .parse(Object.fromEntries(form));
   await db.transaction(async (tx) => {
     await assertActiveSchedule(tx, data.workScheduleId);
-    if (editing)
+    if (editing) {
+      const [existing] = await tx.select({ id: projects.id }).from(projects)
+        .where(eq(projects.id, id)).for("update");
+      if (!existing) throw new Error("Project tidak ditemukan.");
       await tx
         .update(projects)
         .set({ ...data, updatedById: user.id })
         .where(eq(projects.id, id));
-    else
+    } else
       await tx
         .insert(projects)
         .values({
@@ -34,6 +38,7 @@ export async function saveProject(form) {
           projectCode: `PRJ-${id.slice(0, 8)}`,
           createdById: user.id,
         });
+    await recordActivity(tx, user, "projects", editing ? "edit" : "create", data.name);
   });
   revalidatePath("/projects");
   revalidatePath("/assignments");
@@ -41,10 +46,16 @@ export async function saveProject(form) {
   revalidatePath("/users");
 }
 export async function deleteProject(form) {
-  await requirePermission("projects", "delete");
+  const actor = await requirePermission("projects", "delete");
   const id = z.uuid().parse(form.get("id"));
   // Foreign keys reject deletion of projects referenced by assignments or attendance.
-  await db.delete(projects).where(eq(projects.id, id));
+  await db.transaction(async (tx) => {
+    const [target] = await tx.select({ name: projects.name }).from(projects)
+      .where(eq(projects.id, id)).for("update");
+    if (!target) return;
+    await tx.delete(projects).where(eq(projects.id, id));
+    await recordActivity(tx, actor, "projects", "delete", target.name);
+  });
   revalidatePath("/projects");
   revalidatePath("/assignments");
 }

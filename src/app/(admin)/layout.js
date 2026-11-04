@@ -1,4 +1,5 @@
 import "@/components/app/workspace.css";
+import { isSystemAdministrator } from "@/features/activity-logs/server";
 import SidebarNav from "@/components/admin/SidebarNav";
 import { requireWorkspace } from "@/lib/server/auth/permissions";
 export const metadata = { title: "Admin Panel - Portal Absensi" };
@@ -17,6 +18,7 @@ export default async function AdminLayout({ children }) {
           isActive: user.isActive,
         }}
         permissions={permissions}
+        canReadActivityLog={await isSystemAdministrator(user)}
       />
       <main className="admin-main">
         <div className="admin-content">{children}</div>

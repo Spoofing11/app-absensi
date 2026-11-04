@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity } from "@/features/activity-logs/server";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -165,6 +166,7 @@ export async function saveAssignment(form) {
           projectName: project.name,
           projectAddress: project.address,
         });
+        await recordActivity(tx, actor, "assignments", editing ? "edit" : "create", `${worker.name} → ${project.name} · ${data.workDate}`);
       }
     });
   } catch {
@@ -179,7 +181,7 @@ export async function saveAssignment(form) {
 }
 
 export async function deleteAssignment(form) {
-  await requirePermission("assignments", "delete");
+  const actor = await requirePermission("assignments", "delete");
   const parsed = z.uuid().safeParse(form.get("id"));
   if (!parsed.success) return { error: "Penempatan tidak valid." };
   let expectedError = "";
@@ -190,8 +192,8 @@ export async function deleteAssignment(form) {
         .from(projectAssignments)
         .where(eq(projectAssignments.id, parsed.data));
       if (!discovered) return;
-      await tx
-        .select({ id: users.id })
+      const [worker] = await tx
+        .select({ name: users.name })
         .from(users)
         .where(eq(users.id, discovered.workerId))
         .for("update");
@@ -218,6 +220,9 @@ export async function deleteAssignment(form) {
       await tx
         .delete(projectAssignments)
         .where(eq(projectAssignments.id, row.id));
+      const [project] = await tx.select({ name: projects.name }).from(projects)
+        .where(eq(projects.id, row.projectId));
+      await recordActivity(tx, actor, "assignments", "delete", `${worker?.name || "Tukang"} · ${project?.name || "Project"} · ${row.workDate}`);
     });
   } catch {
     return {

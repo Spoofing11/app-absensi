@@ -4,10 +4,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/server/auth";
-import { homePathForRole } from "@/lib/server/auth/session";
+import { getSessionUser, homePathForRole } from "@/lib/server/auth/session";
 import { db } from "@/lib/server/db";
 import { users } from "@/lib/server/db/schema";
 import { isValidUsername, normalizeUsername } from "@/lib/shared/username";
+import { recordSessionActivity } from "@/features/activity-logs/server";
 import { loginSchema } from "./schema";
 
 const INVALID_CREDENTIALS = "Username atau password salah.";
@@ -105,6 +106,8 @@ export async function loginAction(prevState, formData) {
   const [user] = await db
     .select({
       id: users.id,
+      name: users.name,
+      username: users.username,
       role: users.role,
       isActive: users.isActive,
     })
@@ -125,15 +128,19 @@ export async function loginAction(prevState, formData) {
     };
   }
 
+  await recordSessionActivity(user, "login", "Masuk ke aplikasi.");
   redirect(homePathForRole(user.role));
 }
 
 export async function logoutAction() {
+  const user = await getSessionUser().catch(() => null);
   try {
     await auth.api.signOut({ headers: await headers() });
   } catch {
     // Tetap arahkan ke halaman login walau sesi sudah tidak valid.
+    redirect("/login?reason=logout");
   }
+  if (user) await recordSessionActivity(user, "logout", "Keluar dari aplikasi.");
 
   redirect("/login?reason=logout");
 }

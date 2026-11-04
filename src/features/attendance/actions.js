@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity } from "@/features/activity-logs/server";
 import { randomUUID } from "node:crypto";
 import { storePhoto, deletePhoto } from "@/lib/server/photo-storage";
 import sharp from "sharp";
@@ -191,6 +192,8 @@ export async function recordAttendance(kind, photo, reason = {}) {
           .update(attendances)
           .set({ checkOutAt: now, checkOutPhotoId: id, ...departure })
           .where(eq(attendances.id, existing.id));
+      const projectName = kind === "in" ? values.projectNameSnapshot : existing.projectNameSnapshot;
+      await recordActivity(tx, freshUser, "attendance", kind === "in" ? "check_in" : "check_out", `${projectName || "Karyawan"} · ${workDate}`);
     });
     return { success: true };
   } catch (error) {

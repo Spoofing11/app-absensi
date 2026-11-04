@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Clock3,
   History,
+  ClipboardList,
   Users,
   BriefcaseBusiness,
   ShieldCheck,
@@ -29,6 +30,7 @@ const groups = [
     items: [
       ["/users", "Manajemen User", Users],
       ["/roles", "Manajemen Role", ShieldCheck],
+      ["/activity-logs", "Log Aktivitas", ClipboardList],
     ],
   },
   {
@@ -63,7 +65,7 @@ function subscribePreference(listener) {
 function serverPreference() {
   return false;
 }
-export default function SidebarNav({ user, permissions }) {
+export default function SidebarNav({ user, permissions, canReadActivityLog }) {
   const visibleGroups = groups
     .map((group) => ({
       ...group,
@@ -72,7 +74,9 @@ export default function SidebarNav({ user, permissions }) {
           href === "/admin/dashboard" ||
           (href === "/dashboard"
             ? user.role !== "admin" && canUseAttendance(user)
-            : permissions?.[href.slice(1)]?.read),
+            : href === "/activity-logs"
+              ? canReadActivityLog
+              : permissions?.[href.slice(1)]?.read),
       ),
     }))
     .filter((group) => group.items.length > 0);

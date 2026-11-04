@@ -148,7 +148,7 @@ export default function EntityManager({
                       <span className="badge role-badge">
                         {row.isSystem
                           ? "Administrator Composite"
-                          : "Role kustom"}
+                          : row.name}
                       </span>
                     ) : schedule ? (
                       <span>

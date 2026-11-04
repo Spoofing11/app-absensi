@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity, recordSessionActivity } from "@/features/activity-logs/server";
 import { randomUUID } from "node:crypto";
 import { storePhoto, deletePhoto } from "@/lib/server/photo-storage";
 import sharp from "sharp";
@@ -86,6 +87,7 @@ export async function saveOwnProfile(previous, form) {
             : {}),
         })
         .where(eq(users.id, user.id));
+      await recordActivity(tx, user, "profile", "edit", `Profil @${username} diperbarui`);
     });
     committed = true;
   } catch (error) {
@@ -156,6 +158,7 @@ export async function changeOwnPassword(previous, form) {
         .set({ passwordChangedAt: new Date(), updatedById: user.id })
         .where(eq(users.id, user.id));
       await tx.delete(sessions).where(eq(sessions.userId, user.id));
+      await recordActivity(tx, user, "profile", "password", "Password akun diperbarui.");
     });
   } catch (error) {
     if (error.message === "fresh-session-required")
@@ -174,9 +177,10 @@ export async function changeOwnPassword(previous, form) {
   redirect("/login?reason=password-changed");
 }
 export async function reauthenticateForPasswordChange() {
-  await requireUser();
+  const user = await requireUser();
   try {
     await auth.api.signOut({ headers: await headers() });
+    await recordSessionActivity(user, "logout", "Keluar untuk masuk ulang.");
   } catch {}
   redirect("/login?reason=reauth");
 }

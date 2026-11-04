@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity } from "@/features/activity-logs/server";
 import { assertActiveSchedule } from "@/features/schedules/validation";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -11,7 +12,7 @@ import { FEATURES, OPERATIONS } from "@/lib/shared/permissions";
 export async function saveRole(form) {
   const id = form.get("id") || randomUUID();
   const editing = !!form.get("id");
-  await requirePermission("roles", editing ? "edit" : "create");
+  const actor = await requirePermission("roles", editing ? "edit" : "create");
   z.uuid().parse(id);
   const workScheduleId =
     z
@@ -47,12 +48,13 @@ export async function saveRole(form) {
         ),
       })),
     );
+    await recordActivity(tx, actor, "roles", editing ? "edit" : "create", name);
   });
   revalidatePath("/roles");
   revalidatePath("/", "layout");
 }
 export async function deleteRole(form) {
-  await requirePermission("roles", "delete");
+  const actor = await requirePermission("roles", "delete");
   const id = z.uuid().parse(form.get("id"));
   await db.transaction(async (tx) => {
     const [role] = await tx
@@ -68,6 +70,7 @@ export async function deleteRole(form) {
       .limit(1);
     if (used) throw new Error("Role masih digunakan oleh user.");
     await tx.delete(roles).where(eq(roles.id, id));
+    await recordActivity(tx, actor, "roles", "delete", role.name);
   });
   revalidatePath("/roles");
 }

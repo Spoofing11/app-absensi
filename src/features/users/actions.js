@@ -1,4 +1,5 @@
 "use server";
+import { recordActivity } from "@/features/activity-logs/server";
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { and, count, eq } from "drizzle-orm";
@@ -103,6 +104,7 @@ export async function saveUser(form) {
           .where(eq(users.id, id));
         await tx.delete(sessions).where(eq(sessions.userId, id));
       }
+      await recordActivity(tx, admin, "users", "edit", `@${data.username}`);
       return;
     }
     await tx.insert(users).values({
@@ -129,20 +131,21 @@ export async function saveUser(form) {
       userId: id,
       password,
     });
+    await recordActivity(tx, admin, "users", "create", `@${data.username}`);
   });
   revalidatePath("/users");
 }
 export async function deactivateUser(form) {
   const admin = await requirePermission("users", "delete");
   const id = z.uuid().parse(form.get("id"));
-  const [target] = await db.select().from(users).where(eq(users.id, id));
-  if (target?.role === "admin") throw new Error("Akun Admin utama dilindungi.");
-  if (id === admin.id)
-    throw new Error("Tidak dapat menonaktifkan akun sendiri.");
-  await db
-    .update(users)
-    .set({ isActive: false, updatedById: admin.id })
-    .where(eq(users.id, id));
+  if (id === admin.id) throw new Error("Tidak dapat menonaktifkan akun sendiri.");
+  await db.transaction(async (tx) => {
+    const [target] = await tx.select().from(users).where(eq(users.id, id)).for("update");
+    if (!target?.isActive) return;
+    if (target.role === "admin") throw new Error("Akun Admin utama dilindungi.");
+    await tx.update(users).set({ isActive: false, updatedById: admin.id }).where(eq(users.id, id));
+    await recordActivity(tx, admin, "users", "deactivate", `@${target.username}`);
+  });
   revalidatePath("/users");
 }
 
@@ -197,6 +200,7 @@ export async function deleteUser(input) {
     await tx.delete(mediaFiles).where(eq(mediaFiles.ownerUserId, id));
     // The user foreign keys cascade to credentials, sessions, and notifications.
     await tx.delete(users).where(eq(users.id, id));
+    await recordActivity(tx, actor, "users", "delete", `@${target.username} · ${attendanceCount} absensi · ${assignmentCount} penempatan`);
     return { photos };
   });
   if (result.error) return result;

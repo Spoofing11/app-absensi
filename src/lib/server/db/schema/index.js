@@ -9,3 +9,5 @@ export { attendances } from "./attendances.js";
 export { roles, rolePermissions } from "./roles.js";
 
 export { notifications } from "./notifications.js";
+
+export { activityLogs } from "./activity-logs.js";
