@@ -1,7 +1,7 @@
 "use client";
 import { useTimedNotice } from "@/components/ui/useTimedNotice";
 import PasswordRules from "@/components/ui/PasswordRules";
-import { passwordError } from "@/lib/shared/password";
+import { PASSWORD_LENGTH, passwordError } from "@/lib/shared/password";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -355,9 +355,9 @@ export default function ManagementPanel({
                   name="password"
                   type="password"
                   required={!editing}
-                  minLength={12}
-                  maxLength={128}
-                  placeholder="Min. 12 karakter (A-Z, a-z, 0-9, !@#)"
+                  minLength={PASSWORD_LENGTH}
+                  maxLength={PASSWORD_LENGTH}
+                  placeholder="Tepat 8 karakter"
                   value={passwordInput}
                   onChange={(event) => setPasswordInput(event.target.value)}
                   aria-invalid={

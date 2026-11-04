@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
+import { passwordError } from "../../shared/password.js";
 import { db, pool } from "./index.js";
 import { accounts, users, workSchedules } from "./schema/index.js";
 
@@ -57,9 +58,9 @@ async function seedAdmin() {
   const password = process.env.SEED_ADMIN_PASSWORD;
   const fullName = process.env.SEED_ADMIN_NAME ?? "Administrator";
 
-  if (!password || password.length < 12) {
+  if (passwordError(password)) {
     throw new Error(
-      "SEED_ADMIN_PASSWORD wajib diisi (minimal 12 karakter) di .env.local.",
+      "SEED_ADMIN_PASSWORD wajib diisi (tepat 8 karakter) di .env.local.",
     );
   }
 

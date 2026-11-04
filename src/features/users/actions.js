@@ -17,7 +17,7 @@ export async function saveUser(form) {
       username: z.string().min(3).max(50),
       name: z.string().trim().min(1).max(150),
       email: z.email(),
-      password: z.union([z.string().min(12).max(128), z.literal("")]),
+      password: z.string(),
       roleId: z.uuid(),
       employeeType: z.enum(["karyawan", "tukang", "none"]),
     })

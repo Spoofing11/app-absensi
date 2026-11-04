@@ -8,7 +8,7 @@ import {
   reauthenticateForPasswordChange,
 } from "./actions";
 import PasswordRules from "@/components/ui/PasswordRules";
-import { passwordError } from "@/lib/shared/password";
+import { PASSWORD_LENGTH, passwordError } from "@/lib/shared/password";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 export default function ProfileForms({ user }) {
@@ -129,10 +129,10 @@ export default function ProfileForms({ user }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={12}
-              maxLength={128}
+              minLength={PASSWORD_LENGTH}
+              maxLength={PASSWORD_LENGTH}
               autoComplete="new-password"
-              placeholder="Min. 12 karakter (A-Z, a-z, 0-9, !@#)"
+              placeholder="Tepat 8 karakter"
             />
             <PasswordRules value={password} />
           </label>
@@ -144,7 +144,7 @@ export default function ProfileForms({ user }) {
               value={confirmation}
               onChange={(e) => setConfirmation(e.target.value)}
               required
-              maxLength={128}
+              maxLength={PASSWORD_LENGTH}
               autoComplete="new-password"
             />
             {confirmation && confirmation !== password && (
