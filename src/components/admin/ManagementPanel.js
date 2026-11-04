@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Search, Plus, X, Users, ArrowUpRight, Inbox } from "lucide-react";
-import { saveUser, deactivateUser } from "@/features/users/actions";
+import { saveUser, deactivateUser, previewUserDeletion, deleteUser } from "@/features/users/actions";
 
 export default function ManagementPanel({
   rows,
@@ -26,6 +26,9 @@ export default function ManagementPanel({
   const modal = useRef(null);
   const confirmModal = useRef(null);
   const [target, setTarget] = useState(null);
+  const [permanent, setPermanent] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [cleanupWarning, setCleanupWarning] = useState("");
   const router = useRouter();
   function openModal(row) {
     flushSync(() => {
@@ -72,16 +75,54 @@ export default function ManagementPanel({
       setPending(false);
     }
   }
+  async function openConfirmation(row, deletePermanently = false) {
+    setTarget(row);
+    setPermanent(deletePermanently);
+    setPreview(null);
+    setError("");
+    confirmModal.current.showModal();
+    if (!deletePermanently) return;
+
+    setPending(true);
+    try {
+      const result = await previewUserDeletion(row.id);
+      if (result.error) setError(result.error);
+      else setPreview(result);
+    } catch {
+      setError("Rincian penghapusan tidak dapat dimuat. Coba buka kembali.");
+    } finally {
+      setPending(false);
+    }
+  }
   async function confirm() {
     setPending(true);
     setError("");
     try {
-      const data = new FormData();
-      data.set("id", target.id);
-      await deactivateUser(data);
+      if (permanent) {
+        if (!preview) return;
+        const result = await deleteUser({
+          id: target.id,
+          attendanceCount: preview.attendanceCount,
+          assignmentCount: preview.assignmentCount,
+        });
+        if (result.error) {
+          setPreview(null);
+          setError(result.error);
+          return;
+        }
+        if (result.failedPhotos) {
+          setCleanupWarning(
+            `Akun dan data berhasil dihapus, tetapi ${result.failedPhotos} foto belum terhapus dari penyimpanan. Hubungi pengelola server.`,
+          );
+        }
+      } else {
+        const data = new FormData();
+        data.set("id", target.id);
+        await deactivateUser(data);
+      }
       confirmModal.current.close();
       setTarget(null);
-      setNotice("Akun berhasil dinonaktifkan.");
+      setNotice(permanent ? "Akun berhasil dihapus." : "Akun berhasil dinonaktifkan.");
       router.refresh();
     } catch {
       setError(
@@ -111,6 +152,7 @@ export default function ManagementPanel({
           </button>
         )}
       </div>
+      {cleanupWarning && <p className="error-notice" role="alert">{cleanupWarning}</p>}
       <div className="stats-grid">
         {[
           ["Total pengguna", rows.length, "Seluruh akun terdaftar"],
@@ -245,20 +287,19 @@ export default function ManagementPanel({
                       </button>
                     )}
                     {permissions.delete &&
-                    row.isActive &&
                     row.role !== "admin" &&
                     row.id !== currentUserId ? (
-                      <button
-                        className="row-action"
-                        onClick={() => {
-                          setTarget(row);
-                          setError("");
-                          confirmModal.current.showModal();
-                        }}
-                      >
-                        Nonaktifkan
-                        <ArrowUpRight size={14} />
-                      </button>
+                      <>
+                        {row.isActive && (
+                          <button className="row-action mr-2" onClick={() => openConfirmation(row)}>
+                            Nonaktifkan
+                            <ArrowUpRight size={14} />
+                          </button>
+                        )}
+                        <button className="row-action" onClick={() => openConfirmation(row, true)}>
+                          Hapus
+                        </button>
+                      </>
                     ) : (
                       <span className="muted">
                         {row.id === currentUserId ? "Akun Anda" : "—"}
@@ -461,8 +502,20 @@ export default function ManagementPanel({
         }}
       >
         <div className="dialog-body">
-          <h2>Nonaktifkan akun?</h2>
-          <p>Akun {target?.name || ""} tidak akan dapat mengakses aplikasi.</p>
+          <h2>{permanent ? "Hapus akun permanen?" : "Nonaktifkan akun?"}</h2>
+          {permanent ? (
+            <>
+              <p><strong>{preview?.name || target?.name}</strong> (@{preview?.username || target?.username})</p>
+              {preview ? (
+                <>
+                  <p>{preview.attendanceCount} catatan absensi dan {preview.assignmentCount} penempatan akan dihapus, bersama akun, sesi, foto, dan notifikasinya.</p>
+                  <p>Penghapusan ini tidak dapat dibatalkan.</p>
+                </>
+              ) : pending ? <p role="status">Memuat rincian penghapusan…</p> : null}
+            </>
+          ) : (
+            <p>Akun {target?.name || ""} tidak akan dapat mengakses aplikasi.</p>
+          )}
           {error && (
             <p className="error-notice" role="alert">
               {error}
@@ -479,10 +532,10 @@ export default function ManagementPanel({
           </button>
           <button
             className="admin-button danger"
-            disabled={pending}
+            disabled={pending || (permanent && !preview)}
             onClick={confirm}
           >
-            {pending ? "Memproses…" : "Ya, lanjutkan"}
+            {pending ? "Memproses…" : permanent ? "Hapus Permanen" : "Ya, lanjutkan"}
           </button>
         </div>
       </dialog>
