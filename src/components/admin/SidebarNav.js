@@ -17,6 +17,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import AccountMenu from "@/components/app/AccountMenu";
+import { canUseAttendance } from "@/lib/shared/attendance-access";
 const groups = [
   { label: "Pribadi", items: [["/dashboard", "Dashboard Saya", Clock3]] },
   {
@@ -70,7 +71,7 @@ export default function SidebarNav({ user, permissions }) {
         ([href]) =>
           href === "/admin/dashboard" ||
           (href === "/dashboard"
-            ? user.isActive
+            ? user.role !== "admin" && canUseAttendance(user)
             : permissions?.[href.slice(1)]?.read),
       ),
     }))
@@ -174,11 +175,6 @@ export default function SidebarNav({ user, permissions }) {
             </div>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <small className="sidebar-profile-text muted">
-            Akun dan Profil tersedia melalui avatar di header.
-          </small>
-        </div>
       </>
     );
   }

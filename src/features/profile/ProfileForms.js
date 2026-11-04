@@ -64,7 +64,7 @@ export default function ProfileForms({ user }) {
       <section className="content-card">
         <h2>Informasi Profil</h2>
         <p className="worker-help">
-          Ubah nama dan foto yang tampil pada akun Anda.
+          Ubah nama, username, dan foto akun Anda.
         </p>
         <form action={profileAction} className="profile-form">
           <div className="profile-photo-preview">
@@ -104,7 +104,18 @@ export default function ProfileForms({ user }) {
           </label>
           <label>
             Username
-            <input value={user.username} disabled readOnly />
+            <input
+              key={user.username}
+              name="username"
+              defaultValue={user.username}
+              required
+              minLength={3}
+              maxLength={50}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+            <small>Username baru digunakan saat login berikutnya.</small>
           </label>
           {profile.error && <Alert variant="error">{profile.error}</Alert>}
           {notice && <Alert variant="success">{notice}</Alert>}

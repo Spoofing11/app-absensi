@@ -201,6 +201,7 @@ export async function recordAttendance(kind, photo, reason = {}) {
       "Anda sudah check-in hari ini.",
       "Check-out tidak tersedia.",
       "Jadwal kerja belum ditentukan. Hubungi Admin.",
+      "Jadwal kerja project belum ditentukan. Hubungi Admin.",
       "Jadwal kerja nonaktif. Hubungi Admin.",
       "Anda belum memiliki penempatan project untuk tanggal kerja ini.",
     ];

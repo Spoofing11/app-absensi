@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { storePhoto, deletePhoto } from "@/lib/server/photo-storage";
 import sharp from "sharp";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -12,15 +12,26 @@ import { requireUser } from "@/lib/server/auth/session";
 import { auth } from "@/lib/server/auth";
 import { hashPassword } from "better-auth/crypto";
 import { passwordError } from "@/lib/shared/password";
+import { isValidUsername, normalizeUsername } from "@/lib/shared/username";
 export async function saveOwnProfile(previous, form) {
   const user = await requireUser();
   const name = String(form.get("name") || "").trim();
   if (!name || name.length > 150)
     return { error: "Nama wajib diisi dan maksimal 150 karakter." };
+  const rawUsername = form.get("username");
+  if (typeof rawUsername !== "string" || !isValidUsername(rawUsername))
+    return { error: "Username harus 3–50 karakter. Gunakan huruf, angka, titik, garis bawah, atau tanda hubung." };
+  const username = normalizeUsername(rawUsername);
   const photo = form.get("photo");
   let outputFile;
   let committed = false;
   try {
+    const [duplicate] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.username, username), ne(users.id, user.id)))
+      .limit(1);
+    if (duplicate) return { error: "Username sudah digunakan." };
     let metadata = null;
     if (photo && typeof photo !== "string" && photo.size > 0) {
       if (
@@ -64,6 +75,8 @@ export async function saveOwnProfile(previous, form) {
         .update(users)
         .set({
           name,
+          username,
+          displayUsername: username,
           updatedById: user.id,
           ...(metadata
             ? {
@@ -75,8 +88,10 @@ export async function saveOwnProfile(previous, form) {
         .where(eq(users.id, user.id));
     });
     committed = true;
-  } catch {
+  } catch (error) {
     if (outputFile && !committed) await deletePhoto(outputFile).catch(() => {});
+    if (error?.code === "ER_DUP_ENTRY" || error?.cause?.code === "ER_DUP_ENTRY")
+      return { error: "Username sudah digunakan." };
     return {
       error:
         "Profil belum dapat disimpan. Periksa foto dan koneksi, lalu coba lagi.",

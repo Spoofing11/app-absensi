@@ -147,7 +147,7 @@ export default function EntityManager({
                     {role ? (
                       <span className="badge role-badge">
                         {row.isSystem
-                          ? "Admin utama / dilindungi"
+                          ? "Administrator Composite"
                           : "Role kustom"}
                       </span>
                     ) : schedule ? (
@@ -166,10 +166,10 @@ export default function EntityManager({
                         {row.isActive ? "Aktif" : "Nonaktif"}
                       </span>
                     ) : row.isSystem ? (
-                      "Tanpa absensi"
+                      "—"
                     ) : (
                       schedules.find((item) => item.id === row.workScheduleId)
-                        ?.name || (role ? "Belum diatur" : "Ikuti Role Tukang")
+                        ?.name || (role ? "Belum diatur" : "Jadwal belum diatur")
                     )}
                   </td>
                   <td>
@@ -248,12 +248,15 @@ export default function EntityManager({
                 {role ? "Jadwal default" : "Jadwal project"}
                 <select
                   name="workScheduleId"
-                  defaultValue={editing?.workScheduleId || ""}
+                  required={!role}
+                  defaultValue={schedules.some(
+                    (item) => item.id === editing?.workScheduleId && (role || item.isActive),
+                  ) ? editing.workScheduleId : ""}
                 >
-                  <option value="">
-                    {role ? "Belum ditentukan" : "Ikuti jadwal Role Tukang"}
+                  <option value="" disabled={!role}>
+                    {role ? "Belum ditentukan" : "Pilih jadwal aktif"}
                   </option>
-                  {schedules.map((item) => (
+                  {schedules.filter((item) => role || item.isActive).map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
                       {item.isActive ? "" : " (Nonaktif)"} ·{" "}
@@ -263,8 +266,8 @@ export default function EntityManager({
                 </select>
                 <small>
                   {role
-                    ? "Karyawan mengikuti jadwal ini. Tukang memakai jadwal ini bila project tidak memiliki jadwal."
-                    : "Berlaku untuk Tukang yang ditempatkan di project ini."}
+                    ? "Karyawan mengikuti jadwal kerja dari role ini."
+                    : "Wajib dipilih. Jadwal ini berlaku untuk tukang yang ditempatkan di project ini."}
                 </small>
               </label>
             )}

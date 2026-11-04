@@ -32,8 +32,8 @@ export async function saveUser(form) {
     .from(roles)
     .where(eq(roles.id, data.roleId));
   if (!accessRole) throw new Error("Role tidak ditemukan.");
-  if (accessRole.isSystem && admin.role !== "admin")
-    throw new Error("Hanya Admin utama yang dapat memberikan role Admin.");
+  if (accessRole.isSystem && (!editing || admin.role !== "admin"))
+    throw new Error("Role Administrator sistem tidak tersedia untuk akun baru.");
 
   if (!editing && !data.password) throw new Error("Password wajib diisi.");
   if (data.password) {
@@ -54,6 +54,8 @@ export async function saveUser(form) {
         .where(eq(users.id, id))
         .for("update");
       if (!target) throw new Error("User tidak ditemukan.");
+      if (accessRole.isSystem && target.roleId !== data.roleId)
+        throw new Error("Role Administrator sistem tidak dapat diberikan ke akun lain.");
       if (
         target.role === "admin" &&
         (admin.role !== "admin" || data.roleId !== target.roleId)

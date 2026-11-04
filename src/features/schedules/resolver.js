@@ -53,7 +53,7 @@ export async function resolveWorkSchedule(
           "Anda belum memiliki penempatan project untuk tanggal kerja ini.",
       };
   }
-  const [role] = user.roleId
+  const [role] = !assignment && user.roleId
     ? await connection
         .select({ name: roles.name, workScheduleId: roles.workScheduleId })
         .from(roles)
@@ -61,8 +61,8 @@ export async function resolveWorkSchedule(
         .limit(1)
     : [];
   const projectSchedule = assignment?.workScheduleId;
-  const scheduleId = projectSchedule || role?.workScheduleId;
-  const source = projectSchedule
+  const scheduleId = assignment ? projectSchedule : role?.workScheduleId;
+  const source = assignment
     ? `Project ${assignment.projectName}`
     : role
       ? `Role ${role.name}`
@@ -82,7 +82,9 @@ export async function resolveWorkSchedule(
       source,
       blockedReason: schedule
         ? "Jadwal kerja nonaktif. Hubungi Admin."
-        : "Jadwal kerja belum ditentukan. Hubungi Admin.",
+        : assignment
+          ? "Jadwal kerja project belum ditentukan. Hubungi Admin."
+          : "Jadwal kerja belum ditentukan. Hubungi Admin.",
     };
   return {
     schedule,

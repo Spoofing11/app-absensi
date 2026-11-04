@@ -416,7 +416,7 @@ export default function ManagementPanel({
                   defaultValue={editing?.roleId || ""}
                 >
                   <option value="">Pilih role</option>
-                  {roles.map((r) => (
+                  {roles.filter((r) => !r.isSystem || editing?.roleId === r.id).map((r) => (
                     <option value={r.id} key={r.id}>
                       {r.name}
                     </option>
@@ -464,8 +464,7 @@ export default function ManagementPanel({
                 </label>
               )}
               <p className="full-width muted text-xs">
-                Jadwal dipilih otomatis dari Role untuk Karyawan, serta Project
-                lalu Role untuk Tukang.
+                Jadwal dipilih dari Role untuk Karyawan dan dari Project untuk Tukang.
                 {editing?.scheduleLabel && (
                   <span className="block mt-2">
                     Saat ini: {editing.scheduleLabel}

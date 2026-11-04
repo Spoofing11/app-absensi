@@ -14,9 +14,7 @@ export async function saveProject(form) {
   const data = z
     .object({
       name: z.string().trim().min(1).max(150),
-      workScheduleId: z
-        .union([z.uuid(), z.literal("")])
-        .transform((value) => value || null),
+      workScheduleId: z.uuid(),
       address: z.string().trim().min(1).max(5000),
     })
     .parse(Object.fromEntries(form));
@@ -39,6 +37,8 @@ export async function saveProject(form) {
   });
   revalidatePath("/projects");
   revalidatePath("/assignments");
+  revalidatePath("/dashboard");
+  revalidatePath("/users");
 }
 export async function deleteProject(form) {
   await requirePermission("projects", "delete");
