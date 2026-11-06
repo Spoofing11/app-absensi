@@ -44,9 +44,15 @@ export async function requireWorkspace() {
   const user = await requireUser();
   const permissions = await permissionsFor(user);
   if (
-    !["users", "roles", "projects", "assignments", "schedules", "history"].some(
-      (f) => allowed(permissions, f, "read"),
-    ) &&
+    ![
+      "users",
+      "roles",
+      "projects",
+      "assignments",
+      "schedules",
+      "history",
+      "absences",
+    ].some((f) => allowed(permissions, f, "read")) &&
     user.role !== "admin"
   )
     redirect("/dashboard");

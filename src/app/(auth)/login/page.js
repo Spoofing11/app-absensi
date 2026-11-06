@@ -1,3 +1,4 @@
+import InstallApp from "@/components/pwa/InstallApp";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { BrandLockup } from "@/components/auth/BrandLockup";
@@ -45,6 +46,7 @@ export default async function LoginPage({ searchParams }) {
       </div>
 
       <LoginForm notice={notice} />
+      <InstallApp />
     </AuthShell>
   );
 }

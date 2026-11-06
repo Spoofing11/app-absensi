@@ -11,6 +11,7 @@ import {
   projectAssignments,
   notifications,
   attendances,
+  absences,
 } from "@/lib/server/db/schema";
 import { requirePermission } from "@/lib/server/auth/permissions";
 import { validWorkDate } from "@/lib/shared/assignment-date";
@@ -27,9 +28,15 @@ async function ensureUnused(tx, id) {
     .where(eq(attendances.projectAssignmentId, id))
     .limit(1)
     .for("update");
-  if (used)
+  const [absence] = await tx
+    .select({ id: absences.id })
+    .from(absences)
+    .where(eq(absences.assignmentId, id))
+    .limit(1)
+    .for("update");
+  if (used || absence)
     throw new Error(
-      "Penempatan sudah digunakan untuk absensi dan tidak dapat diubah atau dihapus.",
+      "Penempatan sudah digunakan untuk absensi atau ketidakhadiran. Hapus catatan ketidakhadiran terlebih dahulu jika ingin mengubah penempatan.",
     );
 }
 
@@ -166,7 +173,13 @@ export async function saveAssignment(form) {
           projectName: project.name,
           projectAddress: project.address,
         });
-        await recordActivity(tx, actor, "assignments", editing ? "edit" : "create", `${worker.name} → ${project.name} · ${data.workDate}`);
+        await recordActivity(
+          tx,
+          actor,
+          "assignments",
+          editing ? "edit" : "create",
+          `${worker.name} → ${project.name} · ${data.workDate}`,
+        );
       }
     });
   } catch {
@@ -220,9 +233,17 @@ export async function deleteAssignment(form) {
       await tx
         .delete(projectAssignments)
         .where(eq(projectAssignments.id, row.id));
-      const [project] = await tx.select({ name: projects.name }).from(projects)
+      const [project] = await tx
+        .select({ name: projects.name })
+        .from(projects)
         .where(eq(projects.id, row.projectId));
-      await recordActivity(tx, actor, "assignments", "delete", `${worker?.name || "Tukang"} · ${project?.name || "Project"} · ${row.workDate}`);
+      await recordActivity(
+        tx,
+        actor,
+        "assignments",
+        "delete",
+        `${worker?.name || "Tukang"} · ${project?.name || "Project"} · ${row.workDate}`,
+      );
     });
   } catch {
     return {

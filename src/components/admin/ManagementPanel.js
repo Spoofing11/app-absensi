@@ -6,7 +6,12 @@ import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Search, Plus, X, Users, ArrowUpRight, Inbox } from "lucide-react";
-import { saveUser, deactivateUser, previewUserDeletion, deleteUser } from "@/features/users/actions";
+import {
+  saveUser,
+  deactivateUser,
+  previewUserDeletion,
+  deleteUser,
+} from "@/features/users/actions";
 
 export default function ManagementPanel({
   rows,
@@ -104,6 +109,7 @@ export default function ManagementPanel({
           id: target.id,
           attendanceCount: preview.attendanceCount,
           assignmentCount: preview.assignmentCount,
+          absenceCount: preview.absenceCount,
         });
         if (result.error) {
           setPreview(null);
@@ -122,7 +128,9 @@ export default function ManagementPanel({
       }
       confirmModal.current.close();
       setTarget(null);
-      setNotice(permanent ? "Akun berhasil dihapus." : "Akun berhasil dinonaktifkan.");
+      setNotice(
+        permanent ? "Akun berhasil dihapus." : "Akun berhasil dinonaktifkan.",
+      );
       router.refresh();
     } catch {
       setError(
@@ -152,7 +160,11 @@ export default function ManagementPanel({
           </button>
         )}
       </div>
-      {cleanupWarning && <p className="error-notice" role="alert">{cleanupWarning}</p>}
+      {cleanupWarning && (
+        <p className="error-notice" role="alert">
+          {cleanupWarning}
+        </p>
+      )}
       <div className="stats-grid">
         {[
           ["Total pengguna", rows.length, "Seluruh akun terdaftar"],
@@ -291,12 +303,18 @@ export default function ManagementPanel({
                     row.id !== currentUserId ? (
                       <>
                         {row.isActive && (
-                          <button className="row-action mr-2" onClick={() => openConfirmation(row)}>
+                          <button
+                            className="row-action mr-2"
+                            onClick={() => openConfirmation(row)}
+                          >
                             Nonaktifkan
                             <ArrowUpRight size={14} />
                           </button>
                         )}
-                        <button className="row-action" onClick={() => openConfirmation(row, true)}>
+                        <button
+                          className="row-action"
+                          onClick={() => openConfirmation(row, true)}
+                        >
                           Hapus
                         </button>
                       </>
@@ -416,11 +434,13 @@ export default function ManagementPanel({
                   defaultValue={editing?.roleId || ""}
                 >
                   <option value="">Pilih role</option>
-                  {roles.filter((r) => !r.isSystem || editing?.roleId === r.id).map((r) => (
-                    <option value={r.id} key={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
+                  {roles
+                    .filter((r) => !r.isSystem || editing?.roleId === r.id)
+                    .map((r) => (
+                      <option value={r.id} key={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
                 </select>
               </label>
               <div className="full-width attendance-toggle-row">
@@ -464,7 +484,8 @@ export default function ManagementPanel({
                 </label>
               )}
               <p className="full-width muted text-xs">
-                Jadwal dipilih dari Role untuk Karyawan dan dari Project untuk Tukang.
+                Jadwal dipilih dari Role untuk Karyawan dan dari Project untuk
+                Tukang.
                 {editing?.scheduleLabel && (
                   <span className="block mt-2">
                     Saat ini: {editing.scheduleLabel}
@@ -504,16 +525,28 @@ export default function ManagementPanel({
           <h2>{permanent ? "Hapus akun permanen?" : "Nonaktifkan akun?"}</h2>
           {permanent ? (
             <>
-              <p><strong>{preview?.name || target?.name}</strong> (@{preview?.username || target?.username})</p>
+              <p>
+                <strong>{preview?.name || target?.name}</strong> (@
+                {preview?.username || target?.username})
+              </p>
               {preview ? (
                 <>
-                  <p>{preview.attendanceCount} catatan absensi dan {preview.assignmentCount} penempatan akan dihapus, bersama akun, sesi, foto, dan notifikasinya.</p>
+                  <p>
+                    {preview.attendanceCount} catatan absensi dan{" "}
+                    {preview.assignmentCount} penempatan, serta{" "}
+                    {preview.absenceCount} catatan ketidakhadiran akan dihapus,
+                    bersama akun, sesi, foto, dan notifikasinya.
+                  </p>
                   <p>Penghapusan ini tidak dapat dibatalkan.</p>
                 </>
-              ) : pending ? <p role="status">Memuat rincian penghapusan…</p> : null}
+              ) : pending ? (
+                <p role="status">Memuat rincian penghapusan…</p>
+              ) : null}
             </>
           ) : (
-            <p>Akun {target?.name || ""} tidak akan dapat mengakses aplikasi.</p>
+            <p>
+              Akun {target?.name || ""} tidak akan dapat mengakses aplikasi.
+            </p>
           )}
           {error && (
             <p className="error-notice" role="alert">
@@ -534,7 +567,11 @@ export default function ManagementPanel({
             disabled={pending || (permanent && !preview)}
             onClick={confirm}
           >
-            {pending ? "Memproses…" : permanent ? "Hapus Permanen" : "Ya, lanjutkan"}
+            {pending
+              ? "Memproses…"
+              : permanent
+                ? "Hapus Permanen"
+                : "Ya, lanjutkan"}
           </button>
         </div>
       </dialog>

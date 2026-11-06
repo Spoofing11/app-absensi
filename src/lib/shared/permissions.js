@@ -1,4 +1,5 @@
 export const FEATURES = {
+  absences: "Ketidakhadiran",
   history: "Riwayat Absensi",
   schedules: "Jadwal Kerja",
   users: "Manajemen User",

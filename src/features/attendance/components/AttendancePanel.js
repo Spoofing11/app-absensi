@@ -16,6 +16,9 @@ import { Alert } from "@/components/ui/Alert";
 import { EARLY_REASONS, durationLabel } from "../policy";
 import { attendanceContext, recordAttendance } from "../actions";
 export default function AttendancePanel({ initialContext }) {
+  const [workType, setWorkType] = useState("");
+  const [workProject, setWorkProject] = useState("");
+  const [workNote, setWorkNote] = useState("");
   const [reasonCategory, setReasonCategory] = useState("");
   const [reasonText, setReasonText] = useState("");
   const [clock, setClock] = useState(() =>
@@ -145,6 +148,9 @@ export default function AttendancePanel({ initialContext }) {
     }
   }
   function open(kind) {
+    setWorkType("");
+    setWorkProject("");
+    setWorkNote("");
     setReasonCategory("");
     setReasonText("");
     setMode(kind);
@@ -189,10 +195,15 @@ export default function AttendancePanel({ initialContext }) {
     setPending(true);
     setCameraError("");
     try {
-      const result = await recordAttendance(mode, photo.split(",")[1], {
-        category: reasonCategory,
-        text: reasonText,
-      });
+      const result = await recordAttendance(
+        mode,
+        photo.split(",")[1],
+        {
+          category: reasonCategory,
+          text: reasonText,
+        },
+        { type: workType, projectId: workProject, note: workNote },
+      );
       if (result.error) {
         setCameraError(result.error);
         return;
@@ -235,6 +246,10 @@ export default function AttendancePanel({ initialContext }) {
   const earlyNow = record?.scheduledEndAt
     ? Math.max(0, Math.ceil((Date.parse(record.scheduledEndAt) - clock) / 1000))
     : 0;
+  const needsWork = mode === "out" && context.requiresWorkNote;
+  const invalidWork =
+    needsWork &&
+    (!workType || (workType === "project" ? !workProject : !workNote.trim()));
   const needsReason = mode === "out" && earlyNow > 0;
   const checkedIn = !!record?.check_in_time;
   const finished = !!record?.check_out_time;
@@ -280,7 +295,11 @@ export default function AttendancePanel({ initialContext }) {
           {error}
         </Alert>
       )}
-      <div className={context.user.employeeType === "tukang" ? "worker-grid" : undefined}>
+      <div
+        className={
+          context.user.employeeType === "tukang" ? "worker-grid" : undefined
+        }
+      >
         <section className="content-card attendance-card">
           <div className="attendance-card-heading">
             <div>
@@ -435,6 +454,56 @@ export default function AttendancePanel({ initialContext }) {
               </>
             )}
           </div>
+          {needsWork && (
+            <div className="early-reason-form">
+              <label>
+                Jenis pekerjaan
+                <select
+                  value={workType}
+                  disabled={pending}
+                  onChange={(event) => {
+                    setWorkType(event.target.value);
+                    setWorkProject("");
+                    setWorkNote("");
+                  }}
+                >
+                  <option value="">Pilih jenis pekerjaan</option>
+                  <option value="project">Project</option>
+                  <option value="operational">Operasional</option>
+                </select>
+              </label>
+              {workType === "project" && (
+                <label>
+                  Project
+                  <select
+                    value={workProject}
+                    disabled={pending}
+                    onChange={(event) => setWorkProject(event.target.value)}
+                  >
+                    <option value="">Pilih project</option>
+                    {context.workProjects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {workType === "operational" && (
+                <label>
+                  Keterangan operasional
+                  <textarea
+                    value={workNote}
+                    disabled={pending}
+                    maxLength={2000}
+                    rows={3}
+                    onChange={(event) => setWorkNote(event.target.value)}
+                    placeholder="Tuliskan pekerjaan atau project yang Anda tangani hari ini"
+                  />
+                </label>
+              )}
+            </div>
+          )}
           {needsReason && (
             <div className="early-reason-form">
               <Alert variant="warning">
@@ -484,6 +553,7 @@ export default function AttendancePanel({ initialContext }) {
                 loading={pending}
                 disabled={
                   stale ||
+                  invalidWork ||
                   (needsReason &&
                     (!reasonCategory || reasonText.trim().length < 5))
                 }

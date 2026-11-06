@@ -7,6 +7,9 @@ const attendanceLabels = {
   in: "Sudah masuk",
   out: "Sudah pulang",
   none: "Belum absen",
+  sick: "Sakit",
+  leave: "Izin",
+  unexcused: "Tanpa Keterangan",
 };
 
 export default function AssignmentDay({
@@ -87,7 +90,14 @@ export default function AssignmentDay({
           <tbody>
             {projectIds.map((projectId, index) => {
               const team = rows.filter((row) => row.projectId === projectId);
-              const counts = { in: 0, out: 0, none: 0 };
+              const counts = {
+                in: 0,
+                out: 0,
+                none: 0,
+                sick: 0,
+                leave: 0,
+                unexcused: 0,
+              };
               for (const row of team) counts[row.attendanceStatus || "none"]++;
               const opened = !!openProjects[projectId];
               const detailId = `${id}-project-${index}`;
@@ -111,7 +121,11 @@ export default function AssignmentDay({
                       <div className="assignment-attendance-counts">
                         {!day ? (
                           <span className="muted">Data historis</span>
-                        ) : !counts.in && !counts.out ? (
+                        ) : !counts.in &&
+                          !counts.out &&
+                          !counts.sick &&
+                          !counts.leave &&
+                          !counts.unexcused ? (
                           <span className="muted">Belum ada absensi</span>
                         ) : (
                           <>
@@ -125,6 +139,13 @@ export default function AssignmentDay({
                                 {counts.out} sudah pulang
                               </span>
                             )}
+                            {["sick", "leave", "unexcused"]
+                              .filter((status) => counts[status] > 0)
+                              .map((status) => (
+                                <span className="badge role-badge" key={status}>
+                                  {counts[status]} {attendanceLabels[status]}
+                                </span>
+                              ))}
                             {counts.none > 0 && (
                               <span className="muted">
                                 {counts.none} belum absen
@@ -163,7 +184,7 @@ export default function AssignmentDay({
                         <h3>Tim {team[0].project}</h3>
                         <p className="muted">
                           {day
-                            ? "Penempatan yang sudah digunakan untuk absensi tidak dapat diubah atau dihapus."
+                            ? "Penempatan yang sudah dipakai absensi atau ketidakhadiran dilindungi. Hapus catatan ketidakhadiran dahulu untuk mengubah penempatannya."
                             : "Arsip penempatan lama tanpa tanggal kerja."}
                         </p>
                         <ul className="assignment-team">
@@ -188,7 +209,7 @@ export default function AssignmentDay({
                                 )}
                                 {row.used && (
                                   <small className="muted">
-                                    Sudah digunakan untuk absensi · Terkunci
+                                    Sudah digunakan untuk pencatatan · Terkunci
                                   </small>
                                 )}
                               </div>

@@ -1,9 +1,15 @@
+import InstallApp from "@/components/pwa/InstallApp";
 import Link from "next/link";
 import NotificationBell from "@/features/notifications/NotificationBell";
 import { Logo } from "@/components/brand/Logo";
 import AccountMenu from "./AccountMenu";
 import "./workspace.css";
-export default function WorkerShell({ user, canManage, children, hideFooter = false }) {
+export default function WorkerShell({
+  user,
+  canManage,
+  children,
+  hideFooter = false,
+}) {
   return (
     <div className="admin-shell worker-shell">
       <header className="worker-header">
@@ -24,7 +30,10 @@ export default function WorkerShell({ user, canManage, children, hideFooter = fa
           <AccountMenu user={user} />
         </div>
       </header>
-      <main className="worker-main">{children}</main>
+      <main className="worker-main">
+        {children}
+        <InstallApp />
+      </main>
       {!hideFooter && (
         <footer className="admin-footer worker-footer">
           PT Composite Interior Prima<span>Portal Absensi</span>

@@ -2632,3 +2632,81 @@ body:has(dialog[open]) {
     color: #796b5a;
   }
 }
+
+/* Absence management and compact attendance trends. */
+.absence-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: end;
+  justify-content: space-between;
+  margin: 20px 0;
+}
+.absence-toolbar label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.absence-toolbar input {
+  border: 1px solid #dfd3c5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.analytics-spark-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.analytics-spark-card {
+  min-width: 0;
+  overflow: hidden;
+}
+.analytics-sparkline {
+  height: 48px;
+  width: 100%;
+  min-width: 0;
+  margin: 12px 0 6px;
+}
+.attendance-analytics-projects .analytics-project-row {
+  grid-template-columns: minmax(110px, 1.6fr) repeat(8, minmax(0, 1fr)) minmax(
+      45px,
+      0.7fr
+    );
+  gap: 10px;
+}
+@media (max-width: 1100px) {
+  .analytics-spark-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .attendance-analytics-projects .analytics-project-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .attendance-analytics-projects .analytics-project-head {
+    display: none;
+  }
+  .attendance-analytics-projects .analytics-mobile-label {
+    display: block;
+    font-size: 11px;
+    color: #796b5a;
+  }
+  .attendance-analytics-projects .analytics-desktop-label {
+    display: none;
+  }
+  .attendance-analytics-projects .analytics-project-row > strong {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 600px) {
+  .analytics-spark-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .analytics-spark-cards .analytics-total {
+    grid-column: 1/-1;
+  }
+  .attendance-analytics-projects .analytics-project-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .absence-toolbar > label,
+  .absence-toolbar > button {
+    width: 100%;
+  }
+}

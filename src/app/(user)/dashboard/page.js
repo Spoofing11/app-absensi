@@ -20,6 +20,7 @@ export default async function DashboardPage() {
     "assignments",
     "schedules",
     "history",
+    "absences",
   ].some((f) => permissions[f]?.read);
   const canAttend = canUseAttendance(user);
   return (

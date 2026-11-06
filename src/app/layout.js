@@ -17,7 +17,13 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata = {
   icons: {
+    apple: "/images/pwa/apple-touch-icon.png",
     icon: { url: "/images/Composite-Logo-Peanut.webp?v=2", type: "image/webp" },
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Absensi Composite",
+    statusBarStyle: "default",
   },
   title: {
     default: "Portal Absensi",

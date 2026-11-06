@@ -11,3 +11,5 @@ export { roles, rolePermissions } from "./roles.js";
 export { notifications } from "./notifications.js";
 
 export { activityLogs } from "./activity-logs.js";
+
+export { absences } from "./absences.js";

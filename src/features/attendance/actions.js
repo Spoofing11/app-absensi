@@ -3,10 +3,17 @@ import { recordActivity } from "@/features/activity-logs/server";
 import { randomUUID } from "node:crypto";
 import { storePhoto, deletePhoto } from "@/lib/server/photo-storage";
 import sharp from "sharp";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { formatInTimeZone } from "date-fns-tz";
 import { db } from "@/lib/server/db";
-import { users, attendances, mediaFiles, roles } from "@/lib/server/db/schema";
+import {
+  users,
+  attendances,
+  mediaFiles,
+  roles,
+  absences,
+  projects,
+} from "@/lib/server/db/schema";
 import { requireAttendanceUser } from "@/lib/server/auth/attendance";
 import { canUseAttendance } from "@/lib/shared/attendance-access";
 import { checkoutPolicy } from "./policy";
@@ -40,6 +47,22 @@ export async function attendanceContext() {
   const { row, workDate: date } = await currentAttendance(db, user.id);
   const resolved = await resolveWorkSchedule(db, user);
   const { schedule, assignment } = resolved;
+  const [absence] = !row
+    ? await db
+        .select({ status: absences.status })
+        .from(absences)
+        .where(and(eq(absences.userId, user.id), eq(absences.workDate, date)))
+        .limit(1)
+    : [];
+  const requiresWorkNote =
+    (row?.employeeTypeSnapshot || user.employeeType) === "karyawan";
+  const workProjects = requiresWorkNote
+    ? await db
+        .select({ id: projects.id, name: projects.name })
+        .from(projects)
+        .where(eq(projects.status, "active"))
+        .orderBy(projects.name)
+    : [];
   const snapshot = row
     ? {
         name: row.scheduleNameSnapshot,
@@ -57,6 +80,8 @@ export async function attendanceContext() {
     : null;
   return {
     user: { name: user.name, employeeType: user.employeeType },
+    requiresWorkNote,
+    workProjects,
     date,
     dateLabel: date.split("-").reverse().join("/"),
     timezone: row?.timezoneSnapshot || env.APP_TIMEZONE,
@@ -87,13 +112,17 @@ export async function attendanceContext() {
               }
             : null
         : null,
-    blockedReason: row ? "" : resolved.blockedReason,
+    blockedReason: row
+      ? ""
+      : absence && ["sick", "leave"].includes(absence.status)
+        ? "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk."
+        : resolved.blockedReason,
     serverNow: new Date().toISOString(),
     attendance: summary(row),
   };
 }
 
-export async function recordAttendance(kind, photo, reason = {}) {
+export async function recordAttendance(kind, photo, reason = {}, work = {}) {
   const user = await requireAttendanceUser();
   if (
     !["in", "out"].includes(kind) ||
@@ -134,8 +163,70 @@ export async function recordAttendance(kind, photo, reason = {}) {
         kind === "out"
           ? checkoutPolicy(existing.scheduledEndAt, now, reason)
           : null;
+      let workValues = {};
+      if (
+        kind === "out" &&
+        (existing.employeeTypeSnapshot || freshUser.employeeType) === "karyawan"
+      ) {
+        if (!["project", "operational"].includes(work?.type))
+          throw new Error("Pilih jenis pekerjaan sebelum absen pulang.");
+        if (work.type === "project") {
+          if (typeof work.projectId !== "string")
+            throw new Error("Pilih project yang aktif.");
+          const [project] = await tx
+            .select()
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, work.projectId),
+                eq(projects.status, "active"),
+              ),
+            )
+            .for("share");
+          if (!project) throw new Error("Pilih project yang aktif.");
+          workValues = {
+            workType: "project",
+            workNote: null,
+            projectId: project.id,
+            projectCodeSnapshot: project.projectCode,
+            projectNameSnapshot: project.name,
+          };
+        } else {
+          const note = typeof work.note === "string" ? work.note.trim() : "";
+          if (!note || note.length > 2000)
+            throw new Error("Isi keterangan operasional 1–2000 karakter.");
+          workValues = {
+            workType: "operational",
+            workNote: note,
+            projectId: null,
+            projectCodeSnapshot: null,
+            projectNameSnapshot: null,
+          };
+        }
+      }
       let values;
       if (kind === "in") {
+        const [absence] = await tx
+          .select()
+          .from(absences)
+          .where(
+            and(eq(absences.userId, user.id), eq(absences.workDate, workDate)),
+          )
+          .for("update");
+        if (absence && absence.status !== "unexcused")
+          throw new Error(
+            "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk.",
+          );
+        if (absence) {
+          await tx.delete(absences).where(eq(absences.id, absence.id));
+          await recordActivity(
+            tx,
+            freshUser,
+            "absences",
+            "edit",
+            `${workDate} · Tanpa Keterangan menjadi Hadir setelah absen masuk.`,
+          );
+        }
         const resolved = await resolveWorkSchedule(tx, freshUser, workDate);
         if (resolved.blockedReason) throw new Error(resolved.blockedReason);
         const { schedule, assignment } = resolved;
@@ -156,6 +247,9 @@ export async function recordAttendance(kind, photo, reason = {}) {
           id: attendanceId,
           attendanceCode: `ATT-${attendanceId.slice(0, 8)}`,
           userId: user.id,
+          employeeTypeSnapshot: freshUser.employeeType,
+          usernameSnapshot: freshUser.username,
+          workType: freshUser.employeeType === "tukang" ? "project" : null,
           workDate,
           workScheduleId: schedule.id,
           projectAssignmentId: assignment?.id,
@@ -190,15 +284,33 @@ export async function recordAttendance(kind, photo, reason = {}) {
       else
         await tx
           .update(attendances)
-          .set({ checkOutAt: now, checkOutPhotoId: id, ...departure })
+          .set({
+            checkOutAt: now,
+            checkOutPhotoId: id,
+            ...departure,
+            ...workValues,
+          })
           .where(eq(attendances.id, existing.id));
-      const projectName = kind === "in" ? values.projectNameSnapshot : existing.projectNameSnapshot;
-      await recordActivity(tx, freshUser, "attendance", kind === "in" ? "check_in" : "check_out", `${projectName || "Karyawan"} · ${workDate}`);
+      const projectName =
+        kind === "in"
+          ? values.projectNameSnapshot
+          : workValues.projectNameSnapshot || existing.projectNameSnapshot;
+      await recordActivity(
+        tx,
+        freshUser,
+        "attendance",
+        kind === "in" ? "check_in" : "check_out",
+        `${projectName || "Karyawan"} · ${workDate}`,
+      );
     });
     return { success: true };
   } catch (error) {
     if (file) await deletePhoto(file).catch(() => {});
     const known = [
+      "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk.",
+      "Pilih jenis pekerjaan sebelum absen pulang.",
+      "Pilih project yang aktif.",
+      "Isi keterangan operasional 1–2000 karakter.",
       "Absensi pribadi tidak aktif untuk akun Anda.",
       "Pulang lebih awal wajib memilih alasan dan mengisi keterangan 5–1000 karakter.",
       "Anda sudah check-in hari ini.",

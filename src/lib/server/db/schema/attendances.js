@@ -84,6 +84,10 @@ export const attendances = mysqlTable(
       { onDelete: "restrict" },
     ),
 
+    employeeTypeSnapshot: varchar("employee_type_snapshot", { length: 20 }),
+    usernameSnapshot: varchar("username_snapshot", { length: 100 }),
+    workType: varchar("work_type", { length: 20 }),
+    workNote: text("work_note"),
     lateSeconds: int("late_seconds").notNull().default(0),
 
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),

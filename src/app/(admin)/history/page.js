@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ABSENCE_LABELS } from "@/features/absences/labels";
 import { requirePermission } from "@/lib/server/auth/permissions";
 import {
   parseFilters,
@@ -13,7 +14,7 @@ const time = (value, tz) =>
         hour: "2-digit",
         minute: "2-digit",
       }).format(value)
-    : "Belum absen pulang";
+    : "—";
 export default async function Page({ searchParams }) {
   const params = await searchParams;
   let validated;
@@ -60,6 +61,12 @@ export default async function Page({ searchParams }) {
             ini.
           </p>
         </div>
+        <a
+          className="admin-button"
+          href={`/api/history-export?${new URLSearchParams({ ...f, page: 1 })}`}
+        >
+          Ekspor Excel
+        </a>
       </div>
       <section className="data-panel">
         <form className="history-filters" action="/history">
@@ -98,6 +105,10 @@ export default async function Page({ searchParams }) {
             Status
             <select name="status" defaultValue={f.status}>
               <option value="">Semua status</option>
+              <option value="sick">Sakit</option>
+              <option value="leave">Izin</option>
+              <option value="unexcused">Tanpa Keterangan</option>
+              <option value="present">Hadir</option>
               <option value="late">Terlambat</option>
               <option value="early">Pulang awal</option>
               <option value="open">Belum absen pulang</option>
@@ -177,6 +188,9 @@ export default async function Page({ searchParams }) {
                         : [
                             "Pengguna",
                             "Hari hadir",
+                            "Sakit",
+                            "Izin",
+                            "Tanpa Keterangan",
                             "Hari terlambat",
                             "Total terlambat",
                             "Belum pulang",
@@ -200,27 +214,45 @@ export default async function Page({ searchParams }) {
                           {f.view === "detail" ? (
                             <>
                               <td>{r.date}</td>
-                              <td>{r.project || "—"}</td>
+                              <td>
+                                {r.project ||
+                                  (r.workType === "operational"
+                                    ? "Operasional"
+                                    : "—")}
+                                {r.workNote && (
+                                  <small className="block history-reason">
+                                    {r.workNote}
+                                  </small>
+                                )}
+                              </td>
                               <td>{time(r.checkIn, r.timezone)}</td>
                               <td>{time(r.checkOut, r.timezone)}</td>
                               <td>
                                 <div className="history-status">
-                                  <span
-                                    className={`badge ${r.lateSeconds > 0 ? "badge-warning" : "badge-active"}`}
-                                  >
-                                    {r.lateSeconds > 0
-                                      ? `Terlambat ${durationLabel(r.lateSeconds)}`
-                                      : "Tepat waktu"}
-                                  </span>
-                                  {r.earlySeconds > 0 && (
-                                    <span className="badge badge-warning">
-                                      Pulang awal
-                                    </span>
-                                  )}
-                                  {!r.checkOut && (
+                                  {r.absenceStatus ? (
                                     <span className="badge role-badge">
-                                      Belum pulang
+                                      {ABSENCE_LABELS[r.absenceStatus]}
                                     </span>
+                                  ) : (
+                                    <>
+                                      <span
+                                        className={`badge ${r.lateSeconds > 0 ? "badge-warning" : "badge-active"}`}
+                                      >
+                                        {r.lateSeconds > 0
+                                          ? `Terlambat ${durationLabel(r.lateSeconds)}`
+                                          : "Tepat waktu"}
+                                      </span>
+                                      {r.earlySeconds > 0 && (
+                                        <span className="badge badge-warning">
+                                          Pulang awal
+                                        </span>
+                                      )}
+                                      {!r.checkOut && (
+                                        <span className="badge role-badge">
+                                          Belum pulang
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
@@ -236,6 +268,9 @@ export default async function Page({ searchParams }) {
                           ) : (
                             <>
                               <td>{Number(r.days)}</td>
+                              <td>{Number(r.sick)}</td>
+                              <td>{Number(r.leaveDays)}</td>
+                              <td>{Number(r.unexcused)}</td>
                               <td>{Number(r.lateDays)}</td>
                               <td>{durationLabel(Number(r.lateSeconds))}</td>
                               <td>{Number(r.open)}</td>

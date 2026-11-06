@@ -4,6 +4,7 @@ import {
   projects,
   projectAssignments,
   attendances,
+  absences,
 } from "@/lib/server/db/schema";
 import { eq, desc, and, isNotNull } from "drizzle-orm";
 import { formatInTimeZone } from "date-fns-tz";
@@ -58,6 +59,18 @@ export default async function AssignmentsPage() {
     if (!attendanceByAssignment.has(key) || !row.checkOutAt)
       attendanceByAssignment.set(key, row.checkOutAt ? "out" : "in");
   }
+  const absenceRows = await db
+    .select({
+      id: absences.assignmentId,
+      date: absences.workDate,
+      status: absences.status,
+    })
+    .from(absences)
+    .where(isNotNull(absences.assignmentId));
+  const absenceByAssignment = new Map(
+    absenceRows.map((row) => [`${row.id}:${row.date}`, row.status]),
+  );
+  for (const row of absenceRows) used.add(row.id);
   return (
     <AssignmentPanel
       permissions={(await permissionsFor(actor)).assignments}
@@ -65,7 +78,9 @@ export default async function AssignmentsPage() {
         ...row,
         used: used.has(row.id),
         attendanceStatus:
-          attendanceByAssignment.get(`${row.id}:${row.workDate}`) || "none",
+          attendanceByAssignment.get(`${row.id}:${row.workDate}`) ||
+          absenceByAssignment.get(`${row.id}:${row.workDate}`) ||
+          "none",
       }))}
       workers={workers}
       projects={projectRows}

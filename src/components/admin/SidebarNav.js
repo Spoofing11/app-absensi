@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Clock3,
   History,
+  CalendarDays,
   ClipboardList,
   Users,
   BriefcaseBusiness,
@@ -37,6 +38,7 @@ const groups = [
     label: "Operasional",
     items: [
       ["/history", "Riwayat Absensi", History],
+      ["/absences", "Ketidakhadiran", CalendarDays],
       ["/schedules", "Jadwal Kerja", Clock3],
       ["/projects", "Manajemen Project", FolderKanban],
       ["/assignments", "Penempatan Tukang", BriefcaseBusiness],
