@@ -98,13 +98,32 @@ function condition(f) {
   return sql.join(conditions, sql` AND `);
 }
 
+function normalizeHistoryDates(row) {
+  const result = { ...row };
+  // Raw UNION results bypass Drizzle's timestamp column mapping. MySQL times
+  // use the UTC convention configured by our connection, independent of VPS TZ.
+  for (const field of ["checkIn", "checkOut", "scheduledStart", "scheduledEnd"]) {
+    const value = row[field];
+    let date = null;
+    if (value instanceof Date) {
+      date = value;
+    } else if (typeof value === "string" || Buffer.isBuffer(value)) {
+      const text = value.toString().trim().replace(" ", "T");
+      const hasZone = /(?:Z|[+-][0-9]{2}:?[0-9]{2})$/i.test(text);
+      date = new Date(hasZone ? text : `${text}Z`);
+    }
+    result[field] = date && Number.isFinite(date.getTime()) ? date : null;
+  }
+  return result;
+}
+
 export async function exportHistoryRows(params) {
   await requirePermission("history", "read");
   const filters = parseFilters(params);
   const [rows] = await db.execute(
     sql`SELECT r.* FROM (${records(filters)}) r WHERE ${condition(filters)} ORDER BY r.date DESC, r.name, r.id`,
   );
-  return { filters, rows };
+  return { filters, rows: rows.map(normalizeHistoryDates) };
 }
 
 export async function historyData(params) {
@@ -148,7 +167,7 @@ export async function historyData(params) {
   );
   return {
     filters: f,
-    rows,
+    rows: f.view === "detail" ? rows.map(normalizeHistoryDates) : rows,
     groups,
     roleOptions,
     projectOptions,
