@@ -22,6 +22,7 @@ export default function AssignmentPanel({
   const [target, setTarget] = useState(null);
   const [date, setDate] = useState(today);
   const [selected, setSelected] = useState([]);
+  const [workerQuery, setWorkerQuery] = useState("");
   const [query, setQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
@@ -39,6 +40,7 @@ export default function AssignmentPanel({
       setPresetProject(projectId);
       setFormVersion((value) => value + 1);
       setSelected(row ? [row.workerId] : []);
+      setWorkerQuery("");
       setError("");
     });
     modal.current.showModal();
@@ -377,7 +379,16 @@ export default function AssignmentPanel({
                     ? "Pilih satu tukang."
                     : "Pilih hingga 100 tukang untuk project dan tanggal ini."}
                 </p>
+                <input
+                  type="search"
+                  className="assignment-worker-search"
+                  aria-label="Cari nama tukang"
+                  placeholder="Cari nama tukang…"
+                  value={workerQuery}
+                  onChange={(event) => setWorkerQuery(event.target.value)}
+                />
                 <div className="assignment-worker-options">
+                  {/* Keep checked inputs mounted so searching preserves submitted selections. */}
                   {options.map((worker) => {
                     const conflict = rows.find(
                       (row) =>
@@ -388,7 +399,20 @@ export default function AssignmentPanel({
                     return (
                       <label
                         key={worker.id}
-                        className={conflict ? "unavailable" : ""}
+                        className={
+                          conflict
+                            ? "unavailable"
+                            : selected.includes(worker.id)
+                              ? "is-selected"
+                              : ""
+                        }
+                        style={
+                          !worker.name
+                            .toLowerCase()
+                            .includes(workerQuery.trim().toLowerCase())
+                            ? { display: "none" }
+                            : undefined
+                        }
                       >
                         <input
                           type={editing ? "radio" : "checkbox"}
@@ -414,12 +438,27 @@ export default function AssignmentPanel({
                             </small>
                           )}
                         </span>
+                        {(conflict || selected.includes(worker.id)) && (
+                          <span className="assignment-worker-badge">
+                            {conflict ? "Sudah ditempatkan" : "Dipilih"}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
                   {!options.length && (
                     <p className="muted">Belum ada tukang aktif.</p>
                   )}
+                  {options.length > 0 &&
+                    !options.some((worker) =>
+                      worker.name
+                        .toLowerCase()
+                        .includes(workerQuery.trim().toLowerCase()),
+                    ) && (
+                      <p className="muted" role="status">
+                        Tidak ada tukang yang cocok dengan pencarian.
+                      </p>
+                    )}
                 </div>
               </div>
               {error && (

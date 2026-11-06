@@ -2225,6 +2225,35 @@ body:has(dialog[open]) {
   cursor: not-allowed;
 }
 
+.assignment-worker-search {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.assignment-worker-options label.is-selected {
+  background: #edf4ee;
+}
+
+.assignment-worker-options label > span:first-of-type {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.assignment-worker-badge {
+  flex-shrink: 0;
+  max-width: 45%;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: #f1ebe2;
+  font-size: 11px;
+}
+
+.is-selected .assignment-worker-badge {
+  background: #dcebdd;
+  color: #36553b;
+}
+
 .upcoming-assignments {
   margin-top: 24px;
   margin-bottom: 24px;
