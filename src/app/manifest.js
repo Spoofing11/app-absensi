@@ -1,8 +1,8 @@
 export default function manifest() {
   return {
     id: "/",
-    name: "Absensi Composite",
-    short_name: "Absensi",
+    name: "Absensi - Composite",
+    short_name: "Absensi - Composite",
     lang: "id",
     description: "Portal absensi PT Composite Interior Prima",
     start_url: "/",
@@ -12,13 +12,13 @@ export default function manifest() {
     theme_color: "#f9f6f0",
     icons: [
       {
-        src: "/images/pwa/icon-192.png",
+        src: "/images/pwa/icon-192.png?v=2",
         sizes: "192x192",
         type: "image/png",
         purpose: "any maskable",
       },
       {
-        src: "/images/pwa/icon-512.png",
+        src: "/images/pwa/icon-512.png?v=2",
         sizes: "512x512",
         type: "image/png",
         purpose: "any maskable",
