@@ -1,12 +1,13 @@
 import Image from "next/image";
 import { cn } from "@/lib/shared/cn";
 
-export function Logo({ size = 48, className }) {
+export function Logo({ size = 48, className, blendBackground = false }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md",
+        blendBackground ? "mix-blend-multiply" : "bg-white",
         className,
       )}
       style={{ width: size, height: size }}

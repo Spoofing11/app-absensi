@@ -136,7 +136,7 @@ export default function SidebarNav({ user, permissions, canReadActivityLog }) {
           aria-label="Composite — Dashboard"
           onClick={() => drawer.current?.close()}
         >
-          <Logo size={39} />
+          <Logo size={39} blendBackground />
           <span className="sidebar-brand-text">
             COMPOSITE<small>PORTAL ABSENSI</small>
           </span>
