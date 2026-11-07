@@ -1,7 +1,7 @@
 "use client";
 import { useTimedNotice } from "@/components/ui/useTimedNotice";
-import Image from "next/image";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import ProfilePhotoPicker from "./ProfilePhotoPicker";
 import {
   saveOwnProfile,
   changeOwnPassword,
@@ -13,11 +13,16 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 export default function ProfileForms({ user }) {
   const [notice, setNotice] = useTimedNotice();
+  const selectedPhoto = useRef(null);
   const [profile, profileAction, profilePending] = useActionState(
     async (previous, form) => {
       setNotice("");
+      if (selectedPhoto.current) form.set("photo", selectedPhoto.current);
       const result = await saveOwnProfile(previous, form);
-      if (result?.success) setNotice(result.success);
+      if (result?.success) {
+        selectedPhoto.current = null;
+        setNotice(result.success);
+      }
       return result;
     },
     {},
@@ -28,70 +33,24 @@ export default function ProfileForms({ user }) {
   );
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const [preview, setPreview] = useState("");
-  const [fileError, setFileError] = useState("");
-  const [imageFailed, setImageFailed] = useState(false);
-  useEffect(
-    () => () => {
-      if (preview) URL.revokeObjectURL(preview);
-    },
-    [preview],
-  );
-  function choosePhoto(event) {
-    const file = event.target.files?.[0];
-    setFileError("");
-    if (!file) {
-      setPreview("");
-      return;
-    }
-    if (
-      file.size > 5 * 1024 * 1024 ||
-      !["image/jpeg", "image/png", "image/webp"].includes(file.type)
-    ) {
-      setFileError("Gunakan foto JPG, PNG, atau WebP maksimal 5 MB.");
-      event.target.value = "";
-      setPreview("");
-      return;
-    }
-    setImageFailed(false);
-    setPreview(URL.createObjectURL(file));
-  }
-  const photo =
-    preview ||
-    (user.profilePhotoId ? `/api/profile-photo/${user.profilePhotoId}` : "");
   return (
     <div className="profile-grid">
       <section className="content-card">
         <h2>Informasi Profil</h2>
-        <p className="worker-help">
-          Ubah nama, username, dan foto akun Anda.
-        </p>
+        <p className="worker-help">Ubah nama, username, dan foto akun Anda.</p>
         <form action={profileAction} className="profile-form">
-          <div className="profile-photo-preview">
-            {photo && !imageFailed ? (
-              <Image
-                src={photo}
-                width={112}
-                height={112}
-                unoptimized
-                alt="Foto profil Anda"
-                onError={() => setImageFailed(true)}
-              />
-            ) : (
-              <span>{user.name.slice(0, 1)}</span>
-            )}
-          </div>
-          <label>
-            Foto profil
-            <input
-              type="file"
-              name="photo"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={choosePhoto}
-            />
-            <small>JPG, PNG, WebP. Maksimal 5 MB. Foto dipotong persegi.</small>
-          </label>
-          {fileError && <Alert variant="error">{fileError}</Alert>}
+          <ProfilePhotoPicker
+            photo={
+              user.profilePhotoId
+                ? `/api/profile-photo/${user.profilePhotoId}`
+                : ""
+            }
+            name={user.name}
+            disabled={profilePending}
+            onChange={(file) => {
+              selectedPhoto.current = file;
+            }}
+          />
           <label>
             Nama lengkap
             <input
@@ -119,7 +78,7 @@ export default function ProfileForms({ user }) {
           </label>
           {profile.error && <Alert variant="error">{profile.error}</Alert>}
           {notice && <Alert variant="success">{notice}</Alert>}
-          <Button type="submit" loading={profilePending} disabled={!!fileError}>
+          <Button type="submit" loading={profilePending}>
             Simpan Profil
           </Button>
         </form>
