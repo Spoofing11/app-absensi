@@ -17,7 +17,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata = {
   icons: {
-    apple: "/images/pwa/apple-touch-icon.png?v=2",
+    apple: "/images/pwa/apple-touch-icon.png?v=3",
     icon: { url: "/images/Composite-Logo-Peanut.webp?v=2", type: "image/webp" },
   },
   appleWebApp: {

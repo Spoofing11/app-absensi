@@ -12,13 +12,13 @@ export default function manifest() {
     theme_color: "#f9f6f0",
     icons: [
       {
-        src: "/images/pwa/icon-192.png?v=2",
+        src: "/images/pwa/icon-192.png?v=3",
         sizes: "192x192",
         type: "image/png",
         purpose: "any maskable",
       },
       {
-        src: "/images/pwa/icon-512.png?v=2",
+        src: "/images/pwa/icon-512.png?v=3",
         sizes: "512x512",
         type: "image/png",
         purpose: "any maskable",
