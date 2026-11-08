@@ -22,10 +22,14 @@ const features = {
   schedules: "Jadwal Kerja",
   projects: "Project",
   assignments: "Penempatan",
+  approvals: "Approval Absensi",
+  "photo-recap": "Rekap Foto Absensi",
 };
 const actions = {
   login: "Login",
-  export: "Ekspor Excel",
+  export: "Ekspor",
+  approve: "Setujui",
+  reject: "Tolak",
   logout: "Logout",
   check_in: "Absen Masuk",
   check_out: "Absen Pulang",

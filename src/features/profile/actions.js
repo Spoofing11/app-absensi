@@ -26,6 +26,7 @@ export async function saveOwnProfile(previous, form) {
   const photo = form.get("photo");
   let outputFile;
   let committed = false;
+  let stage = "database";
   try {
     const [duplicate] = await db
       .select({ id: users.id })
@@ -40,6 +41,7 @@ export async function saveOwnProfile(previous, form) {
         !["image/jpeg", "image/png", "image/webp"].includes(photo.type)
       )
         return { error: "Gunakan foto JPG, PNG, atau WebP maksimal 5 MB." };
+      stage = "image";
       const image = await sharp(Buffer.from(await photo.arrayBuffer()), {
         limitInputPixels: 25000000,
         animated: false,
@@ -50,6 +52,7 @@ export async function saveOwnProfile(previous, form) {
         .toBuffer({ resolveWithObject: true });
       const id = randomUUID();
       const storageKey = `${id}.jpg`;
+      stage = "storage";
       await storePhoto(storageKey, image.data);
       outputFile = storageKey;
       metadata = {
@@ -64,6 +67,7 @@ export async function saveOwnProfile(previous, form) {
         createdById: user.id,
       };
     }
+    stage = "database";
     await db.transaction(async (tx) => {
       const [current] = await tx
         .select({ id: users.id, isActive: users.isActive })
@@ -94,6 +98,16 @@ export async function saveOwnProfile(previous, form) {
     if (outputFile && !committed) await deletePhoto(outputFile).catch(() => {});
     if (error?.code === "ER_DUP_ENTRY" || error?.cause?.code === "ER_DUP_ENTRY")
       return { error: "Username sudah digunakan." };
+    // Log only diagnostic codes, never SQL, credentials, or uploaded contents.
+    console.error("[profile-save]", {
+      stage,
+      code: String(error?.cause?.code || error?.code || error?.name || "UnknownError").slice(0, 100),
+      status: error?.$metadata?.httpStatusCode,
+    });
+    if (stage === "image")
+      return { error: "Foto tidak dapat diproses. Coba simpan ulang sebagai JPG atau PNG, lalu unggah kembali." };
+    if (stage === "storage")
+      return { error: "Foto belum dapat diunggah ke penyimpanan. Hubungi Admin untuk memeriksa konfigurasi storage." };
     return {
       error:
         "Profil belum dapat disimpan. Periksa foto dan koneksi, lalu coba lagi.",

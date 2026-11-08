@@ -21,6 +21,8 @@ export default async function DashboardPage() {
     "schedules",
     "history",
     "absences",
+    "approvals",
+    "photo-recap",
   ].some((f) => permissions[f]?.read);
   const canAttend = canUseAttendance(user);
   return (

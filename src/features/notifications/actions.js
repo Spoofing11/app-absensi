@@ -7,8 +7,7 @@ import { requireUser } from "@/lib/server/auth/session";
 
 async function recipient() {
   const user = await requireUser();
-  if (user.employeeType !== "tukang")
-    throw new Error("Akses notifikasi tidak tersedia.");
+
   return user.id;
 }
 

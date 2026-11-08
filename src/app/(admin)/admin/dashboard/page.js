@@ -11,7 +11,7 @@ import AnalyticsCards from "@/features/dashboard/AnalyticsCards";
 
 export default async function Page({ searchParams }) {
   const { user, permissions } = await requireWorkspace();
-  if (!permissions.assignments?.read || !permissions.history?.read)
+  if (!permissions.history?.read)
     return (
       <>
         <div className="page-heading">
@@ -31,10 +31,15 @@ export default async function Page({ searchParams }) {
   const params = await searchParams;
   const today = formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd");
   const date = validWorkDate(params?.date) ? params.date : today;
-  const { options, selected, groups, totals, trend } = await dashboardData(
-    date,
-    params?.project,
-  );
+  const {
+    options,
+    selected,
+    groups,
+    totals,
+    trend,
+    roleOptions,
+    selectedRole,
+  } = await dashboardData(date, params?.project, params?.role);
   const formatTime = (value, zone) =>
     value ? formatInTimeZone(value, zone || env.APP_TIMEZONE, "HH:mm") : "—";
   return (
@@ -42,10 +47,21 @@ export default async function Page({ searchParams }) {
       <div className="page-heading">
         <div>
           <h1>Dashboard Kehadiran</h1>
-          <p>Pantau absensi tukang berdasarkan penempatan project.</p>
+          <p>Pantau kehadiran pengguna berdasarkan role dan project.</p>
         </div>
       </div>
       <form className="content-card assignment-filter" method="get">
+        <label>
+          Role
+          <select name="role" defaultValue={selectedRole}>
+            <option value="">Semua Role</option>
+            {roleOptions.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           Tanggal kerja
           <input type="date" name="date" defaultValue={date} required />
@@ -72,8 +88,9 @@ export default async function Page({ searchParams }) {
       <section className="content-card attendance-analytics-projects">
         <h2>Kehadiran per Project</h2>
         <p className="muted">
-          Sudah Masuk mencakup tukang yang sudah pulang. Terlambat adalah
-          rincian dari Sudah Masuk.
+          Sudah Masuk mencakup pengguna yang sudah pulang dan tidak ditolak.
+          Total pengguna dihitung unik. Terlambat adalah rincian dari Sudah
+          Masuk.
         </p>
         {groups.length ? (
           <>
@@ -83,7 +100,7 @@ export default async function Page({ searchParams }) {
             >
               {[
                 "Project",
-                "Total Penempatan",
+                "Total Pengguna",
                 "Masuk",
                 "Belum Absen",
                 "Izin",
@@ -103,7 +120,7 @@ export default async function Page({ searchParams }) {
                   <summary className="analytics-project-row">
                     <strong>{group.name}</strong>
                     {[
-                      ["Total Penempatan", stats.total],
+                      ["Total Pengguna", stats.total],
                       ["Masuk", stats.entered],
                       ["Belum Absen", stats.pending],
                       ["Izin", stats.leave],
@@ -131,7 +148,7 @@ export default async function Page({ searchParams }) {
                     <table className="admin-table">
                       <thead>
                         <tr>
-                          <th>Tukang</th>
+                          <th>Pengguna</th>
                           <th>Jam Masuk</th>
                           <th>Jam Pulang</th>
                           <th>Status</th>
@@ -144,15 +161,17 @@ export default async function Page({ searchParams }) {
                             <td>{formatTime(row.checkIn, row.timezone)}</td>
                             <td>{formatTime(row.checkOut, row.timezone)}</td>
                             <td>
-                              {row.checkOut
-                                ? "Sudah pulang"
-                                : row.checkIn
-                                  ? "Sudah masuk"
-                                  : row.absenceStatus
-                                    ? ABSENCE_LABELS[row.absenceStatus]
-                                    : "Belum absen"}
+                              {row.approvalStatus === "rejected"
+                                ? "Ditolak"
+                                : row.checkOut
+                                  ? "Sudah pulang"
+                                  : row.checkIn
+                                    ? "Sudah masuk"
+                                    : row.absenceStatus
+                                      ? ABSENCE_LABELS[row.absenceStatus]
+                                      : "Belum absen"}
                               {row.late > 0 && (
-                                <small className="block muted">
+                                <small className="block attendance-late">
                                   Terlambat {durationLabel(row.late)}
                                 </small>
                               )}
@@ -168,7 +187,7 @@ export default async function Page({ searchParams }) {
           </>
         ) : (
           <div className="empty-state">
-            <p>Belum ada penempatan untuk tanggal ini.</p>
+            <p>Belum ada data pengguna untuk filter ini.</p>
           </div>
         )}
       </section>

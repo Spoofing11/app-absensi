@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   devIndicators: false,
+  serverExternalPackages: ["pdfkit"],
   experimental: {
     agentFeedback: true,
     serverActions: { bodySizeLimit: "6mb" },

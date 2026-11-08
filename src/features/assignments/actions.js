@@ -255,3 +255,217 @@ export async function deleteAssignment(form) {
   refresh();
   return { success: true };
 }
+
+// Ongoing placements are retired rather than reactivated, preserving their history.
+export async function saveOngoingAssignment(form) {
+  const actor = await requirePermission("assignments", "create");
+  const parsed = z
+    .object({ projectId: z.uuid(), userIds: z.array(z.uuid()).min(1).max(100) })
+    .safeParse({
+      projectId: form.get("projectId"),
+      userIds: [...new Set(form.getAll("userId"))],
+    });
+  if (!parsed.success) return { error: "Pilih project dan 1–100 pengguna." };
+  try {
+    await db.transaction(async (tx) => {
+      const selected = await tx
+        .select()
+        .from(users)
+        .where(inArray(users.id, parsed.data.userIds))
+        .orderBy(users.id)
+        .for("update");
+      if (
+        selected.length !== parsed.data.userIds.length ||
+        selected.some((u) => !u.isActive || u.role === "admin")
+      )
+        throw new Error("Pengguna tidak tersedia.");
+      const [project] = await tx
+        .select()
+        .from(projects)
+        .where(
+          and(
+            eq(projects.id, parsed.data.projectId),
+            eq(projects.status, "active"),
+          ),
+        )
+        .for("share");
+      if (!project) throw new Error("Project tidak aktif.");
+      for (const person of selected) {
+        const [duplicate] = await tx
+          .select({ id: projectAssignments.id })
+          .from(projectAssignments)
+          .where(
+            and(
+              eq(projectAssignments.workerId, person.id),
+              eq(projectAssignments.projectId, project.id),
+              eq(projectAssignments.assignmentType, "ongoing"),
+              eq(projectAssignments.isActive, true),
+            ),
+          )
+          .for("update");
+        if (duplicate)
+          throw new Error(
+            "Pengguna sudah memiliki penempatan aktif pada project ini.",
+          );
+        const id = randomUUID();
+        await tx.insert(projectAssignments).values({
+          id,
+          assignmentCode: `ASG-${id.slice(0, 8)}`,
+          workerId: person.id,
+          projectId: project.id,
+          assignmentType: "ongoing",
+          isActive: true,
+          createdById: actor.id,
+        });
+        await tx.insert(notifications).values({
+          id: randomUUID(),
+          recipientId: person.id,
+          assignmentId: id,
+          initialKey: id,
+          projectName: project.name,
+          projectAddress: project.address,
+        });
+        await recordActivity(
+          tx,
+          actor,
+          "assignments",
+          "create",
+          `${person.name} → ${project.name} · Tanpa batas tanggal`,
+        );
+      }
+    });
+    refresh();
+    revalidatePath("/admin/dashboard");
+    return { success: "Penempatan berhasil disimpan." };
+  } catch (error) {
+    const known = [
+      "Pengguna tidak tersedia.",
+      "Project tidak aktif.",
+      "Pengguna sudah memiliki penempatan aktif pada project ini.",
+    ];
+    return {
+      error: known.includes(error.message)
+        ? error.message
+        : "Penempatan belum dapat disimpan.",
+    };
+  }
+}
+export async function deactivateAssignment(form) {
+  const actor = await requirePermission("assignments", "edit");
+  const id = z.uuid().parse(form.get("id"));
+  await db.transaction(async (tx) => {
+    const [found] = await tx
+      .select()
+      .from(projectAssignments)
+      .where(eq(projectAssignments.id, id));
+    if (!found) throw new Error("Penempatan tidak ditemukan.");
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, found.workerId))
+      .for("update");
+    const [row] = await tx
+      .select()
+      .from(projectAssignments)
+      .where(eq(projectAssignments.id, id))
+      .for("update");
+    if (
+      !row ||
+      row.workerId !== found.workerId ||
+      row.assignmentType !== "ongoing" ||
+      !row.isActive
+    )
+      throw new Error("Penempatan sudah berubah.");
+    await tx
+      .update(projectAssignments)
+      .set({ isActive: false, endedAt: new Date(), updatedById: actor.id })
+      .where(eq(projectAssignments.id, id));
+    await recordActivity(
+      tx,
+      actor,
+      "assignments",
+      "edit",
+      `Penempatan ${row.assignmentCode} dinonaktifkan.`,
+    );
+  });
+  refresh();
+  revalidatePath("/admin/dashboard");
+}
+
+export async function reactivateAssignment(form) {
+  const actor = await requirePermission("assignments", "edit");
+  const id = z.uuid().parse(form.get("id"));
+  await db.transaction(async (tx) => {
+    const [found] = await tx
+      .select()
+      .from(projectAssignments)
+      .where(eq(projectAssignments.id, id));
+    if (!found) throw new Error("Penempatan tidak ditemukan.");
+    const [person] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, found.workerId))
+      .for("update");
+    const [row] = await tx
+      .select()
+      .from(projectAssignments)
+      .where(eq(projectAssignments.id, id))
+      .for("update");
+    if (
+      !row ||
+      row.workerId !== found.workerId ||
+      row.assignmentType !== "ongoing" ||
+      row.isActive ||
+      !person?.isActive ||
+      person.role === "admin"
+    )
+      throw new Error("Penempatan tidak dapat diaktifkan.");
+    const [project] = await tx
+      .select()
+      .from(projects)
+      .where(and(eq(projects.id, row.projectId), eq(projects.status, "active")))
+      .for("share");
+    if (!project) throw new Error("Project tidak aktif.");
+    const [duplicate] = await tx
+      .select({ id: projectAssignments.id })
+      .from(projectAssignments)
+      .where(
+        and(
+          eq(projectAssignments.workerId, row.workerId),
+          eq(projectAssignments.projectId, row.projectId),
+          eq(projectAssignments.assignmentType, "ongoing"),
+          eq(projectAssignments.isActive, true),
+        ),
+      )
+      .for("update");
+    if (duplicate)
+      throw new Error("Sudah ada penempatan aktif pada project ini.");
+    const nextId = randomUUID();
+    await tx.insert(projectAssignments).values({
+      id: nextId,
+      assignmentCode: `ASG-${nextId.slice(0, 8)}`,
+      workerId: row.workerId,
+      projectId: row.projectId,
+      assignmentType: "ongoing",
+      isActive: true,
+      createdById: actor.id,
+    });
+    await tx.insert(notifications).values({
+      id: randomUUID(),
+      recipientId: row.workerId,
+      assignmentId: nextId,
+      initialKey: nextId,
+      projectName: project.name,
+      projectAddress: project.address,
+    });
+    await recordActivity(
+      tx,
+      actor,
+      "assignments",
+      "edit",
+      `${person.name} → ${project.name} · Penempatan diaktifkan kembali`,
+    );
+  });
+  refresh();
+  revalidatePath("/admin/dashboard");
+}

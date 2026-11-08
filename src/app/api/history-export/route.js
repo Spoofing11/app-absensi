@@ -1,3 +1,4 @@
+import { APPROVAL_LABELS } from "@/lib/shared/attendance-review";
 import ExcelJS from "exceljs";
 import { formatInTimeZone } from "date-fns-tz";
 import {
@@ -98,7 +99,7 @@ export async function GET(request) {
         });
       const group = groups.get(key);
       if (row.absenceStatus) group[row.absenceStatus]++;
-      else {
+      else if (row.approvalStatus !== "rejected") {
         group.dates.add(row.date);
         if (row.lateSeconds > 0) group.lateDates.add(row.date);
         group.lateTime += Number(row.lateSeconds) / 86400;
@@ -143,6 +144,9 @@ export async function GET(request) {
         width: 23,
         style: { numFmt: "dd/mm/yyyy hh:mm" },
       },
+      { header: "Approval", key: "approval", width: 20 },
+      { header: "Alasan penolakan", key: "approvalReason", width: 40 },
+      { header: "Project laporan", key: "reportedProject", width: 28 },
       { header: "Jadwal", key: "schedule", width: 24 },
       { header: "Zona Waktu", key: "zone", width: 20 },
       {
@@ -185,6 +189,9 @@ export async function GET(request) {
         date: new Date(row.date + "T00:00:00Z"),
         code: row.code,
         name: row.name,
+        approval: APPROVAL_LABELS[row.approvalStatus] || "",
+        approvalReason: row.approvalReason || "",
+        reportedProject: row.reportedProject || "",
         username: row.username,
         role: row.groupLabel,
         employee:
@@ -193,7 +200,11 @@ export async function GET(request) {
             : row.employeeType === "karyawan"
               ? "Karyawan"
               : null,
-        status: row.absenceStatus ? ABSENCE_LABELS[row.absenceStatus] : "Hadir",
+        status: row.absenceStatus
+          ? ABSENCE_LABELS[row.absenceStatus]
+          : row.approvalStatus === "rejected"
+            ? "Ditolak"
+            : "Hadir",
         workType:
           row.workType === "operational"
             ? "Operasional"
@@ -219,6 +230,13 @@ export async function GET(request) {
       });
   }
   styleSheet(sheet);
+  sheet.eachRow((row, index) => {
+    if (index <= 1) return;
+    const key = filters.view === "recap" ? "lateTime" : "late";
+    const cell = row.getCell(key);
+    if (Number(cell.value) > 0)
+      cell.font = { ...cell.font, color: { argb: "FFB42318" } };
+  });
   const buffer = await workbook.xlsx.writeBuffer();
   await recordActivity(
     db,

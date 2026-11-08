@@ -10,7 +10,12 @@ export async function GET(request, { params }) {
   const user = await getSessionUser();
   if (!user?.isActive) return new Response(null, { status: 401 });
   const permissions = await permissionsFor(user);
-  if (!permissions.history?.read) return new Response(null, { status: 403 });
+  if (
+    !permissions.history?.read &&
+    !permissions.approvals?.read &&
+    !permissions["photo-recap"]?.read
+  )
+    return new Response(null, { status: 403 });
   const { id, kind } = await params;
   if (!z.uuid().safeParse(id).success || !["in", "out"].includes(kind))
     return new Response(null, { status: 404 });
@@ -19,6 +24,12 @@ export async function GET(request, { params }) {
     .from(attendances)
     .where(eq(attendances.id, id))
     .limit(1);
+  if (
+    kind === "out" &&
+    row?.approvalStatus === "rejected" &&
+    !permissions.approvals?.read
+  )
+    return new Response(null, { status: 404 });
   const photoId = kind === "in" ? row?.checkInPhotoId : row?.checkOutPhotoId;
   if (!photoId) return new Response(null, { status: 404 });
   const [photo] = await db

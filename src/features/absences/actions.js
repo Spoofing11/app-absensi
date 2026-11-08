@@ -1,4 +1,8 @@
 "use server";
+import {
+  assignmentOptions,
+  placementDateCondition,
+} from "@/features/assignments/project-options";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -57,7 +61,7 @@ export async function absenceOptions(date) {
     })
     .from(projectAssignments)
     .innerJoin(projects, eq(projects.id, projectAssignments.projectId))
-    .where(eq(projectAssignments.workDate, date));
+    .where(placementDateCondition(date));
   const present = await db
     .select({ userId: attendances.userId })
     .from(attendances)
@@ -162,7 +166,15 @@ export async function saveAbsence(form) {
         fail(
           "Pengguna sudah memiliki catatan ketidakhadiran pada tanggal tersebut.",
         );
-      const resolved = await resolveWorkSchedule(tx, user, data.workDate);
+      const placements = await assignmentOptions(tx, user.id, data.workDate);
+      const placement = placements.find((p) => p.projectId === data.projectId);
+      const resolved = await resolveWorkSchedule(
+        tx,
+        user,
+        data.workDate,
+        placement?.id || "",
+        false,
+      );
       let assignment = resolved.assignment;
       if (user.employeeType === "tukang" && !assignment) {
         [assignment] = await tx

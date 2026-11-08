@@ -1,3 +1,4 @@
+import { APPROVAL_LABELS } from "@/lib/shared/attendance-review";
 import Link from "next/link";
 import { ABSENCE_LABELS } from "@/features/absences/labels";
 import { requirePermission } from "@/lib/server/auth/permissions";
@@ -108,6 +109,9 @@ export default async function Page({ searchParams }) {
               <option value="sick">Sakit</option>
               <option value="leave">Izin</option>
               <option value="unexcused">Tanpa Keterangan</option>
+              <option value="pending">Menunggu approval</option>
+              <option value="approved">Disetujui</option>
+              <option value="rejected">Ditolak</option>
               <option value="present">Hadir</option>
               <option value="late">Terlambat</option>
               <option value="early">Pulang awal</option>
@@ -219,6 +223,11 @@ export default async function Page({ searchParams }) {
                                   (r.workType === "operational"
                                     ? "Operasional"
                                     : "—")}
+                                {r.reportedProject && (
+                                  <small className="block muted">
+                                    Laporan: {r.reportedProject}
+                                  </small>
+                                )}
                                 {r.workNote && (
                                   <small className="block history-reason">
                                     {r.workNote}
@@ -229,6 +238,17 @@ export default async function Page({ searchParams }) {
                               <td>{time(r.checkOut, r.timezone)}</td>
                               <td>
                                 <div className="history-status">
+                                  {r.approvalStatus &&
+                                    r.approvalStatus !== "legacy" && (
+                                      <span
+                                        className={`badge ${r.approvalStatus === "rejected" ? "attendance-late" : "role-badge"}`}
+                                      >
+                                        {APPROVAL_LABELS[r.approvalStatus]}
+                                      </span>
+                                    )}
+                                  {r.approvalReason && (
+                                    <small>{r.approvalReason}</small>
+                                  )}
                                   {r.absenceStatus ? (
                                     <span className="badge role-badge">
                                       {ABSENCE_LABELS[r.absenceStatus]}
@@ -236,7 +256,7 @@ export default async function Page({ searchParams }) {
                                   ) : (
                                     <>
                                       <span
-                                        className={`badge ${r.lateSeconds > 0 ? "badge-warning" : "badge-active"}`}
+                                        className={`badge ${r.lateSeconds > 0 ? "attendance-late" : "badge-active"}`}
                                       >
                                         {r.lateSeconds > 0
                                           ? `Terlambat ${durationLabel(r.lateSeconds)}`
@@ -271,8 +291,24 @@ export default async function Page({ searchParams }) {
                               <td>{Number(r.sick)}</td>
                               <td>{Number(r.leaveDays)}</td>
                               <td>{Number(r.unexcused)}</td>
-                              <td>{Number(r.lateDays)}</td>
-                              <td>{durationLabel(Number(r.lateSeconds))}</td>
+                              <td
+                                className={
+                                  Number(r.lateDays) > 0
+                                    ? "attendance-late"
+                                    : undefined
+                                }
+                              >
+                                {Number(r.lateDays)}
+                              </td>
+                              <td
+                                className={
+                                  Number(r.lateSeconds) > 0
+                                    ? "attendance-late"
+                                    : undefined
+                                }
+                              >
+                                {durationLabel(Number(r.lateSeconds))}
+                              </td>
                               <td>{Number(r.open)}</td>
                               <td>{Number(r.early)}</td>
                               <td>{durationLabel(Number(r.duration))}</td>

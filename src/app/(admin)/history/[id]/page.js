@@ -1,3 +1,4 @@
+import { APPROVAL_LABELS } from "@/lib/shared/attendance-review";
 import { ABSENCE_LABELS } from "@/features/absences/labels";
 import Image from "next/image";
 import Link from "next/link";
@@ -33,6 +34,24 @@ export default async function Page({ params }) {
       </div>
       <section className="content-card history-detail">
         <dl>
+          {row.approvalStatus && (
+            <>
+              <dt>Approval</dt>
+              <dd>{APPROVAL_LABELS[row.approvalStatus]}</dd>
+              {row.approvalReason && (
+                <>
+                  <dt>Alasan penolakan</dt>
+                  <dd>{row.approvalReason}</dd>
+                </>
+              )}
+            </>
+          )}
+          {row.reportedProjectName && (
+            <>
+              <dt>Project laporan pekerjaan</dt>
+              <dd>{row.reportedProjectName}</dd>
+            </>
+          )}
           <dt>Role saat absen</dt>
           <dd>{row.roleNameSnapshot || `Data lama · ${row.roleSnapshot}`}</dd>
           {row.projectNameSnapshot?.trim() && (
@@ -84,7 +103,11 @@ export default async function Page({ params }) {
               <dt>Absen pulang</dt>
               <dd>{date(row.checkOutAt)}</dd>
               <dt>Keterlambatan</dt>
-              <dd>{durationLabel(row.lateSeconds)}</dd>
+              <dd
+                className={row.lateSeconds > 0 ? "attendance-late" : undefined}
+              >
+                {durationLabel(row.lateSeconds)}
+              </dd>
               <dt>Durasi kehadiran</dt>
               <dd>
                 {row.checkOutAt
@@ -116,7 +139,11 @@ export default async function Page({ params }) {
           <div className="history-photos">
             {[
               ["in", "Foto masuk", row.checkInPhotoId],
-              ["out", "Foto pulang", row.checkOutPhotoId],
+              [
+                "out",
+                "Foto pulang",
+                row.approvalStatus === "rejected" ? null : row.checkOutPhotoId,
+              ],
             ].map(([kind, label, photo]) => (
               <div key={kind}>
                 <h2>{label}</h2>
@@ -130,7 +157,13 @@ export default async function Page({ params }) {
                     className="history-photo"
                   />
                 ) : (
-                  <p className="worker-help">Foto belum tersedia.</p>
+                  <Image
+                    src="/images/no-photo.svg"
+                    width={320}
+                    height={320}
+                    alt="No Photo"
+                    className="history-photo"
+                  />
                 )}
               </div>
             ))}

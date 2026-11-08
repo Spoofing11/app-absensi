@@ -4,7 +4,11 @@ import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
-import { FEATURES, OPERATIONS } from "@/lib/shared/permissions";
+import {
+  FEATURES,
+  OPERATIONS,
+  supportsOperation,
+} from "@/lib/shared/permissions";
 import { saveRole, deleteRole } from "@/features/roles/actions";
 import { saveSchedule, deleteSchedule } from "@/features/schedules/actions";
 import { saveProject, deleteProject } from "@/features/projects/actions";
@@ -146,9 +150,7 @@ export default function EntityManager({
                   <td>
                     {role ? (
                       <span className="badge role-badge">
-                        {row.isSystem
-                          ? "Administrator Composite"
-                          : row.name}
+                        {row.isSystem ? "Administrator Composite" : row.name}
                       </span>
                     ) : schedule ? (
                       <span>
@@ -169,7 +171,8 @@ export default function EntityManager({
                       "—"
                     ) : (
                       schedules.find((item) => item.id === row.workScheduleId)
-                        ?.name || (role ? "Belum diatur" : "Jadwal belum diatur")
+                        ?.name ||
+                      (role ? "Belum diatur" : "Jadwal belum diatur")
                     )}
                   </td>
                   <td>
@@ -249,20 +252,28 @@ export default function EntityManager({
                 <select
                   name="workScheduleId"
                   required={!role}
-                  defaultValue={schedules.some(
-                    (item) => item.id === editing?.workScheduleId && (role || item.isActive),
-                  ) ? editing.workScheduleId : ""}
+                  defaultValue={
+                    schedules.some(
+                      (item) =>
+                        item.id === editing?.workScheduleId &&
+                        (role || item.isActive),
+                    )
+                      ? editing.workScheduleId
+                      : ""
+                  }
                 >
                   <option value="" disabled={!role}>
                     {role ? "Belum ditentukan" : "Pilih jadwal aktif"}
                   </option>
-                  {schedules.filter((item) => role || item.isActive).map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                      {item.isActive ? "" : " (Nonaktif)"} ·{" "}
-                      {item.startTime.slice(0, 5)}–{item.endTime.slice(0, 5)}
-                    </option>
-                  ))}
+                  {schedules
+                    .filter((item) => role || item.isActive)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                        {item.isActive ? "" : " (Nonaktif)"} ·{" "}
+                        {item.startTime.slice(0, 5)}–{item.endTime.slice(0, 5)}
+                      </option>
+                    ))}
                 </select>
                 <small>
                   {role
@@ -336,7 +347,15 @@ export default function EntityManager({
                       <tr>
                         <th>Fitur</th>
                         {OPERATIONS.map((op) => (
-                          <th key={op}>{op}</th>
+                          <th key={op}>
+                            {op === "read"
+                              ? "Lihat"
+                              : op === "edit"
+                                ? "Ubah / Proses"
+                                : op === "create"
+                                  ? "Tambah"
+                                  : "Hapus"}
+                          </th>
                         ))}
                       </tr>
                     </thead>
@@ -349,12 +368,10 @@ export default function EntityManager({
                               <input
                                 type="checkbox"
                                 name={`${feature}.${op}`}
-                                disabled={
-                                  feature === "history" && op !== "read"
-                                }
+                                disabled={!supportsOperation(feature, op)}
                                 title={
-                                  feature === "history" && op !== "read"
-                                    ? "Riwayat hanya mendukung Read"
+                                  !supportsOperation(feature, op)
+                                    ? "Operasi ini tidak tersedia untuk fitur ini"
                                     : undefined
                                 }
                                 aria-label={`${label} ${op}`}

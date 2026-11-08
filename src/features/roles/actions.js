@@ -8,7 +8,11 @@ import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { roles, rolePermissions, users } from "@/lib/server/db/schema";
 import { requirePermission } from "@/lib/server/auth/permissions";
-import { FEATURES, OPERATIONS } from "@/lib/shared/permissions";
+import {
+  FEATURES,
+  OPERATIONS,
+  supportsOperation,
+} from "@/lib/shared/permissions";
 export async function saveRole(form) {
   const id = form.get("id") || randomUUID();
   const editing = !!form.get("id");
@@ -41,7 +45,7 @@ export async function saveRole(form) {
         ...Object.fromEntries(
           OPERATIONS.map((op) => [
             op,
-            feature === "history" && op !== "read"
+            !supportsOperation(feature, op)
               ? false
               : form.get(`${feature}.${op}`) === "on",
           ]),

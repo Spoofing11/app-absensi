@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/server/db";
 import { roles, rolePermissions } from "@/lib/server/db/schema";
 import { requireUser } from "./session";
-import { FEATURES, OPERATIONS, allowed } from "@/lib/shared/permissions";
+import {
+  FEATURES,
+  OPERATIONS,
+  allowed,
+  supportsOperation,
+} from "@/lib/shared/permissions";
 export async function permissionsFor(user) {
   const [role] = user.roleId
     ? await db.select().from(roles).where(eq(roles.id, user.roleId))
@@ -27,7 +32,12 @@ export async function permissionsFor(user) {
       .filter((r) => Object.hasOwn(FEATURES, r.feature))
       .map((r) => [
         r.feature,
-        { create: r.create, read: r.read, edit: r.edit, delete: r.delete },
+        Object.fromEntries(
+          OPERATIONS.map((op) => [
+            op,
+            supportsOperation(r.feature, op) && r[op],
+          ]),
+        ),
       ]),
   );
 }
@@ -52,6 +62,8 @@ export async function requireWorkspace() {
       "schedules",
       "history",
       "absences",
+      "approvals",
+      "photo-recap",
     ].some((f) => allowed(permissions, f, "read")) &&
     user.role !== "admin"
   )

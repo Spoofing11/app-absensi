@@ -20,15 +20,14 @@ import { checkoutPolicy } from "./policy";
 import { currentAttendance } from "./queries";
 import { attendanceTiming } from "@/features/schedules/timing";
 import { resolveWorkSchedule } from "@/features/schedules/resolver";
+import { assignmentOptions } from "@/features/assignments/project-options";
 import { env } from "@/lib/server/env";
-
-function today() {
-  return formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd");
-}
 
 function summary(row) {
   return row
     ? {
+        approvalStatus: row.approvalStatus,
+        approvalReason: row.approvalReason,
         lateSeconds: row.lateSeconds,
         scheduledEndAt: row.scheduledEndAt.toISOString(),
         earlySeconds: row.earlySeconds,
@@ -45,7 +44,13 @@ function summary(row) {
 export async function attendanceContext() {
   const user = await requireAttendanceUser();
   const { row, workDate: date } = await currentAttendance(db, user.id);
-  const resolved = await resolveWorkSchedule(db, user);
+  const placements = await assignmentOptions(db, user.id, date);
+  const resolved = await resolveWorkSchedule(
+    db,
+    user,
+    date,
+    placements.length === 1 ? placements[0].id : "",
+  );
   const { schedule, assignment } = resolved;
   const [absence] = !row
     ? await db
@@ -79,6 +84,12 @@ export async function attendanceContext() {
       }
     : null;
   return {
+    placements: placements.map((p) => ({
+      id: p.id,
+      projectId: p.projectId,
+      name: p.projectName,
+      address: p.projectAddress,
+    })),
     user: { name: user.name, employeeType: user.employeeType },
     requiresWorkNote,
     workProjects,
@@ -96,7 +107,9 @@ export async function attendanceContext() {
         : null),
     scheduleSource: row ? "Jadwal saat absen masuk" : resolved.source,
     project:
-      user.employeeType === "tukang"
+      user.employeeType === "tukang" ||
+      placements.length > 0 ||
+      row?.projectNameSnapshot
         ? row?.projectNameSnapshot
           ? {
               name: row.projectNameSnapshot,
@@ -116,7 +129,10 @@ export async function attendanceContext() {
       ? ""
       : absence && ["sick", "leave"].includes(absence.status)
         ? "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk."
-        : resolved.blockedReason,
+        : resolved.blockedReason ===
+            "Pilih project penempatan sebelum absen masuk."
+          ? ""
+          : resolved.blockedReason,
     serverNow: new Date().toISOString(),
     attendance: summary(row),
   };
@@ -154,7 +170,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
       const now = new Date();
       const current = await currentAttendance(tx, user.id, now);
       const existing = current.row;
-      const workDate = kind === "out" ? current.workDate : today();
+      const workDate = current.workDate;
       if (kind === "in" && existing)
         throw new Error("Anda sudah check-in hari ini.");
       if (kind === "out" && (!existing || existing.checkOutAt))
@@ -187,9 +203,8 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
           workValues = {
             workType: "project",
             workNote: null,
-            projectId: project.id,
-            projectCodeSnapshot: project.projectCode,
-            projectNameSnapshot: project.name,
+            reportedProjectId: project.id,
+            reportedProjectName: project.name,
           };
         } else {
           const note = typeof work.note === "string" ? work.note.trim() : "";
@@ -198,9 +213,8 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
           workValues = {
             workType: "operational",
             workNote: note,
-            projectId: null,
-            projectCodeSnapshot: null,
-            projectNameSnapshot: null,
+            reportedProjectId: null,
+            reportedProjectName: null,
           };
         }
       }
@@ -227,7 +241,12 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
             `${workDate} · Tanpa Keterangan menjadi Hadir setelah absen masuk.`,
           );
         }
-        const resolved = await resolveWorkSchedule(tx, freshUser, workDate);
+        const resolved = await resolveWorkSchedule(
+          tx,
+          freshUser,
+          workDate,
+          work?.assignmentId || "",
+        );
         if (resolved.blockedReason) throw new Error(resolved.blockedReason);
         const { schedule, assignment } = resolved;
         const timing = attendanceTiming(
@@ -244,6 +263,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
           : [];
         const attendanceId = randomUUID();
         values = {
+          approvalStatus: "pending",
           id: attendanceId,
           attendanceCode: `ATT-${attendanceId.slice(0, 8)}`,
           userId: user.id,
@@ -285,6 +305,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
         await tx
           .update(attendances)
           .set({
+            approvalStatus: "pending",
             checkOutAt: now,
             checkOutPhotoId: id,
             ...departure,
@@ -294,7 +315,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
       const projectName =
         kind === "in"
           ? values.projectNameSnapshot
-          : workValues.projectNameSnapshot || existing.projectNameSnapshot;
+          : workValues.reportedProjectName || existing.projectNameSnapshot;
       await recordActivity(
         tx,
         freshUser,
@@ -309,6 +330,8 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
     const known = [
       "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk.",
       "Pilih jenis pekerjaan sebelum absen pulang.",
+      "Pilih project penempatan sebelum absen masuk.",
+      "Penempatan sudah berubah. Muat ulang lalu pilih project kembali.",
       "Pilih project yang aktif.",
       "Isi keterangan operasional 1–2000 karakter.",
       "Absensi pribadi tidak aktif untuk akun Anda.",

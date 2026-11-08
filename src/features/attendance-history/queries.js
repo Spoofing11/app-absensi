@@ -26,6 +26,9 @@ export function parseFilters(params = {}) {
         "leave",
         "unexcused",
         "present",
+        "pending",
+        "approved",
+        "rejected",
       ]),
       view: z.enum(["detail", "recap"]),
       page: z.coerce.number().int().min(1).max(100000),
@@ -63,7 +66,7 @@ function records(f) {
       a.schedule_name_snapshot AS scheduleName, a.scheduled_start_at AS scheduledStart,
       a.scheduled_end_at AS scheduledEnd, a.early_reason_category AS earlyReason,
       a.early_reason_text AS earlyReasonText, a.work_type AS workType, a.work_note AS workNote,
-      COALESCE(a.employee_type_snapshot, CASE WHEN a.role_snapshot IN ('karyawan', 'tukang') THEN a.role_snapshot ELSE NULL END) AS employeeType, NULL AS absenceStatus, NULL AS note
+      COALESCE(a.employee_type_snapshot, CASE WHEN a.role_snapshot IN ('karyawan', 'tukang') THEN a.role_snapshot ELSE NULL END) AS employeeType, NULL AS absenceStatus, NULL AS note, a.approval_status AS approvalStatus, a.approval_reason AS approvalReason, a.reported_project_name AS reportedProject
     FROM attendances a WHERE a.work_date >= ${f.from} AND a.work_date <= ${f.to}
     UNION ALL
     SELECT n.id, n.user_id,
@@ -74,7 +77,7 @@ function records(f) {
       CAST(n.work_date AS CHAR), n.project_id, n.project_name, n.project_code, NULL, NULL,
       n.timezone, 0, 0, n.schedule_name, n.scheduled_start_at, n.scheduled_end_at, NULL, NULL,
       CASE WHEN n.project_id IS NOT NULL THEN 'project' ELSE NULL END, NULL,
-      n.employee_type, n.status, n.note
+      n.employee_type, n.status, n.note, NULL, NULL, NULL
     FROM absences n WHERE n.work_date >= ${f.from} AND n.work_date <= ${f.to}
       AND NOT EXISTS (SELECT 1 FROM attendances a WHERE a.user_id = n.user_id AND a.work_date = n.work_date)
   `;
@@ -89,7 +92,12 @@ function condition(f) {
     );
   if (["sick", "leave", "unexcused"].includes(f.status))
     conditions.push(sql`r.absenceStatus = ${f.status}`);
-  if (f.status === "present") conditions.push(sql`r.checkIn IS NOT NULL`);
+  if (["pending", "approved", "rejected"].includes(f.status))
+    conditions.push(sql`r.approvalStatus = ${f.status}`);
+  if (f.status === "present")
+    conditions.push(
+      sql`r.checkIn IS NOT NULL AND r.approvalStatus <> 'rejected'`,
+    );
   if (f.status === "late") conditions.push(sql`r.lateSeconds > 0`);
   if (f.status === "early") conditions.push(sql`r.earlySeconds > 0`);
   if (f.status === "open")
@@ -102,7 +110,12 @@ function normalizeHistoryDates(row) {
   const result = { ...row };
   // Raw UNION results bypass Drizzle's timestamp column mapping. MySQL times
   // use the UTC convention configured by our connection, independent of VPS TZ.
-  for (const field of ["checkIn", "checkOut", "scheduledStart", "scheduledEnd"]) {
+  for (const field of [
+    "checkIn",
+    "checkOut",
+    "scheduledStart",
+    "scheduledEnd",
+  ]) {
     const value = row[field];
     let date = null;
     if (value instanceof Date) {
@@ -153,12 +166,12 @@ export async function historyData(params) {
     f.view === "detail"
       ? sql`SELECT r.* FROM (${source}) r WHERE ${where} ORDER BY r.groupLabel, r.date DESC, r.checkIn DESC, r.id LIMIT 25 OFFSET ${offset}`
       : sql`SELECT r.groupKey, r.groupLabel, r.userId, MAX(r.name) AS name, MAX(r.code) AS code,
-        COUNT(DISTINCT CASE WHEN r.checkIn IS NOT NULL THEN r.date END) AS days,
-        COUNT(DISTINCT CASE WHEN r.lateSeconds > 0 THEN r.date END) AS lateDays,
-        SUM(r.lateSeconds) AS lateSeconds,
-        SUM(CASE WHEN r.checkIn IS NOT NULL AND r.checkOut IS NULL THEN 1 ELSE 0 END) AS \`open\`,
-        SUM(CASE WHEN r.earlySeconds > 0 THEN 1 ELSE 0 END) AS early,
-        SUM(CASE WHEN r.checkOut IS NOT NULL THEN TIMESTAMPDIFF(SECOND, r.checkIn, r.checkOut) ELSE 0 END) AS duration,
+        COUNT(DISTINCT CASE WHEN r.checkIn IS NOT NULL AND r.approvalStatus <> 'rejected' THEN r.date END) AS days,
+        COUNT(DISTINCT CASE WHEN r.lateSeconds > 0 AND r.approvalStatus <> 'rejected' THEN r.date END) AS lateDays,
+        SUM(CASE WHEN r.approvalStatus <> 'rejected' THEN r.lateSeconds ELSE 0 END) AS lateSeconds,
+        SUM(CASE WHEN r.checkIn IS NOT NULL AND r.checkOut IS NULL AND r.approvalStatus <> 'rejected' THEN 1 ELSE 0 END) AS \`open\`,
+        SUM(CASE WHEN r.earlySeconds > 0 AND r.approvalStatus <> 'rejected' THEN 1 ELSE 0 END) AS early,
+        SUM(CASE WHEN r.checkOut IS NOT NULL AND r.approvalStatus <> 'rejected' THEN TIMESTAMPDIFF(SECOND, r.checkIn, r.checkOut) ELSE 0 END) AS duration,
         SUM(CASE WHEN r.absenceStatus = 'sick' THEN 1 ELSE 0 END) AS sick,
         SUM(CASE WHEN r.absenceStatus = 'leave' THEN 1 ELSE 0 END) AS leaveDays,
         SUM(CASE WHEN r.absenceStatus = 'unexcused' THEN 1 ELSE 0 END) AS unexcused

@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/Logo";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  Camera,
   LayoutDashboard,
   Clock3,
   History,
@@ -41,7 +42,9 @@ const groups = [
       ["/absences", "Ketidakhadiran", CalendarDays],
       ["/schedules", "Jadwal Kerja", Clock3],
       ["/projects", "Manajemen Project", FolderKanban],
-      ["/assignments", "Penempatan Tukang", BriefcaseBusiness],
+      ["/assignments", "Penempatan Project", BriefcaseBusiness],
+      ["/approvals", "Approval Absensi", ClipboardList],
+      ["/photo-recap", "Rekap Foto Absensi", Camera],
     ],
   },
 ];

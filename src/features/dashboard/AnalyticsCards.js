@@ -1,13 +1,13 @@
 "use client";
 import { Line, LineChart, ResponsiveContainer } from "recharts";
 const cards = [
-  ["total", "Total Penempatan", "#7b6049"],
+  ["total", "Total Pengguna", "#7b6049"],
   ["entered", "Sudah Masuk", "#43765a"],
   ["pending", "Belum Absen", "#a77a30"],
   ["leave", "Izin", "#527794"],
   ["sick", "Sakit", "#9d6b81"],
   ["unexcused", "Tanpa Keterangan", "#a44e46"],
-  ["late", "Terlambat", "#b37c38"],
+  ["late", "Terlambat", "#b42318"],
 ];
 export default function AnalyticsCards({ totals, trend, date }) {
   return (
@@ -18,9 +18,11 @@ export default function AnalyticsCards({ totals, trend, date }) {
           key={key}
         >
           <span className="stat-label">{label}</span>
-          <strong>{totals[key]}</strong>
+          <strong className={key === "late" ? "attendance-late" : undefined}>
+            {totals[key]}
+          </strong>
           <small>
-            {key === "late" ? "tukang dari yang sudah masuk" : "tukang"}
+            {key === "late" ? "pengguna dari yang sudah masuk" : "pengguna"}
           </small>
           <div className="analytics-sparkline" aria-hidden="true">
             <ResponsiveContainer width="100%" height={48} minWidth={0}>

@@ -87,6 +87,17 @@ export const attendances = mysqlTable(
     employeeTypeSnapshot: varchar("employee_type_snapshot", { length: 20 }),
     usernameSnapshot: varchar("username_snapshot", { length: 100 }),
     workType: varchar("work_type", { length: 20 }),
+    reportedProjectId: varchar("reported_project_id", {
+      length: 36,
+    }).references(() => projects.id, { onDelete: "restrict" }),
+    reportedProjectName: varchar("reported_project_name", { length: 150 }),
+    approvalStatus: varchar("approval_status", { length: 20 })
+      .notNull()
+      .default("legacy"),
+    approvalReason: text("approval_reason"),
+    reviewedById: varchar("reviewed_by_id", { length: 36 }),
+    reviewedByName: varchar("reviewed_by_name", { length: 150 }),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
     workNote: text("work_note"),
     lateSeconds: int("late_seconds").notNull().default(0),
 
@@ -97,6 +108,10 @@ export const attendances = mysqlTable(
       .onUpdateNow(),
   },
   (table) => [
+    index("attendances_approval_date_idx").on(
+      table.approvalStatus,
+      table.workDate,
+    ),
     index("attendances_role_snapshot_date_idx").on(
       table.roleIdSnapshot,
       table.workDate,

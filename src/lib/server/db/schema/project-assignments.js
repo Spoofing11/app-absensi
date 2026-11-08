@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   index,
   uniqueIndex,
@@ -9,7 +10,7 @@ import {
 } from "drizzle-orm/mysql-core";
 import { projects } from "./projects.js";
 import { users } from "./users.js";
-// workDate is null only for archived placements imported from the old model.
+// Null workDate is either a daily legacy archive or an explicitly typed ongoing placement.
 
 export const projectAssignments = mysqlTable(
   "project_assignments",
@@ -29,6 +30,10 @@ export const projectAssignments = mysqlTable(
     // Retained only for audit of placements ended before daily scheduling.
     endedAt: timestamp("ended_at", { mode: "date" }),
     workDate: date("work_date", { mode: "string" }),
+    assignmentType: varchar("assignment_type", { length: 20 })
+      .notNull()
+      .default("daily"),
+    isActive: boolean("is_active").notNull().default(true),
     endDate: date("end_date", { mode: "string" }),
     notes: text("notes"),
     createdById: varchar("created_by_id", { length: 36 }).notNull(),
@@ -40,6 +45,11 @@ export const projectAssignments = mysqlTable(
       .onUpdateNow(),
   },
   (table) => [
+    index("assignments_type_active_user_idx").on(
+      table.assignmentType,
+      table.isActive,
+      table.workerId,
+    ),
     uniqueIndex("project_assignments_worker_date_unique").on(
       table.workerId,
       table.workDate,

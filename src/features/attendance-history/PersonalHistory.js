@@ -1,3 +1,4 @@
+import { APPROVAL_LABELS } from "@/lib/shared/attendance-review";
 import Link from "next/link";
 import { and, eq, desc, count, gte, lte } from "drizzle-orm";
 import { z } from "zod";
@@ -27,6 +28,8 @@ export default async function PersonalHistory({ searchParams = {} }) {
   const page = Math.min(parsedPage.success ? parsedPage.data : 1, pages);
   const rows = await db
     .select({
+      approvalStatus: attendances.approvalStatus,
+      approvalReason: attendances.approvalReason,
       id: attendances.id,
       date: attendances.workDate,
       role: attendances.roleNameSnapshot,
@@ -131,8 +134,14 @@ export default async function PersonalHistory({ searchParams = {} }) {
                   <td>{time(row.checkOut, row.timezone)}</td>
                   <td>
                     <div className="history-status">
+                      {row.approvalStatus && (
+                        <span>{APPROVAL_LABELS[row.approvalStatus]}</span>
+                      )}
+                      {row.approvalReason && (
+                        <small>{row.approvalReason}</small>
+                      )}
                       <span
-                        className={`badge ${row.late > 0 ? "badge-warning" : "badge-active"}`}
+                        className={`badge ${row.late > 0 ? "attendance-late" : "badge-active"}`}
                       >
                         {row.late > 0
                           ? `Terlambat ${durationLabel(row.late)}`

@@ -21,7 +21,7 @@ export default function WorkerShell({
           </span>
         </Link>
         <div className="worker-header-actions">
-          {user.employeeType === "tukang" && <NotificationBell />}
+          {user.role !== "admin" && <NotificationBell />}
           {canManage && (
             <Link className="admin-button secondary" href="/admin/dashboard">
               Pengelolaan

@@ -140,7 +140,7 @@ export default function AssignmentPanel({
       <div className="page-heading">
         <div>
           <p className="eyebrow">MANAJEMEN OPERASIONAL</p>
-          <h1>Penempatan Tukang</h1>
+          <h2>Penempatan Harian</h2>
           <p>Atur project dan tim untuk setiap tanggal kerja.</p>
         </div>
         {permissions.create && (

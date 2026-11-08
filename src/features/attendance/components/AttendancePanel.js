@@ -16,6 +16,7 @@ import { Alert } from "@/components/ui/Alert";
 import { EARLY_REASONS, durationLabel } from "../policy";
 import { attendanceContext, recordAttendance } from "../actions";
 export default function AttendancePanel({ initialContext }) {
+  const [selectedPlacement, setSelectedPlacement] = useState("");
   const [workType, setWorkType] = useState("");
   const [workProject, setWorkProject] = useState("");
   const [workNote, setWorkNote] = useState("");
@@ -148,6 +149,9 @@ export default function AttendancePanel({ initialContext }) {
     }
   }
   function open(kind) {
+    setSelectedPlacement(
+      context.placements?.length === 1 ? context.placements[0].id : "",
+    );
     setWorkType("");
     setWorkProject("");
     setWorkNote("");
@@ -174,12 +178,29 @@ export default function AttendancePanel({ initialContext }) {
           "Kamera belum siap. Tunggu sebentar lalu coba kembali.",
         );
       const canvas = document.createElement("canvas");
-      const scale = Math.min(1, 1280 / source.videoWidth);
-      canvas.width = Math.round(source.videoWidth * scale);
-      canvas.height = Math.round(source.videoHeight * scale);
+      const frame = source.getBoundingClientRect();
+      const aspect = frame.width / frame.height;
+      const sourceAspect = source.videoWidth / source.videoHeight;
+      const cropWidth =
+        sourceAspect > aspect ? source.videoHeight * aspect : source.videoWidth;
+      const cropHeight =
+        sourceAspect > aspect ? source.videoHeight : source.videoWidth / aspect;
+      const scale = Math.min(1, 1280 / Math.max(cropWidth, cropHeight));
+      canvas.width = Math.round(cropWidth * scale);
+      canvas.height = Math.round(cropHeight * scale);
       canvas
         .getContext("2d")
-        .drawImage(source, 0, 0, canvas.width, canvas.height);
+        .drawImage(
+          source,
+          (source.videoWidth - cropWidth) / 2,
+          (source.videoHeight - cropHeight) / 2,
+          cropWidth,
+          cropHeight,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+        );
       const data = canvas.toDataURL("image/jpeg", 0.75);
       if (data.length > 900000)
         throw new Error("Foto terlalu besar. Silakan ambil ulang.");
@@ -202,7 +223,12 @@ export default function AttendancePanel({ initialContext }) {
           category: reasonCategory,
           text: reasonText,
         },
-        { type: workType, projectId: workProject, note: workNote },
+        {
+          type: workType,
+          projectId: workProject,
+          note: workNote,
+          assignmentId: selectedPlacement,
+        },
       );
       if (result.error) {
         setCameraError(result.error);
@@ -272,7 +298,7 @@ export default function AttendancePanel({ initialContext }) {
       </div>
       {record?.lateSeconds > 0 && (
         <Alert
-          variant="warning"
+          variant="error"
           title={`Anda terlambat ${durationLabel(record.lateSeconds)}${record.lateSeconds >= 3600 ? ` (${Math.ceil(record.lateSeconds / 60)} menit)` : ""}.`}
           className="mb-5"
         >
@@ -297,7 +323,10 @@ export default function AttendancePanel({ initialContext }) {
       )}
       <div
         className={
-          context.user.employeeType === "tukang" ? "worker-grid" : undefined
+          context.placements?.length > 0 ||
+          context.user.employeeType === "tukang"
+            ? "worker-grid"
+            : undefined
         }
       >
         <section className="content-card attendance-card">
@@ -332,6 +361,22 @@ export default function AttendancePanel({ initialContext }) {
               ? "Absen masuk dan pulang hari ini sudah tercatat."
               : "Gunakan kamera perangkat untuk mengambil foto kehadiran."}
           </p>
+          {record?.approvalStatus && record.approvalStatus !== "legacy" && (
+            <p
+              className={
+                record.approvalStatus === "rejected"
+                  ? "attendance-late"
+                  : "worker-help"
+              }
+            >
+              Approval:{" "}
+              {record.approvalStatus === "approved"
+                ? "Disetujui"
+                : record.approvalStatus === "rejected"
+                  ? `Ditolak — ${record.approvalReason || ""}`
+                  : "Menunggu pemeriksaan"}
+            </p>
+          )}
           <div className="attendance-times">
             <div>
               <span>
@@ -370,22 +415,30 @@ export default function AttendancePanel({ initialContext }) {
             {refreshing ? "Memperbarui..." : "Perbarui ringkasan"}
           </button>
         </section>
-        {context.user.employeeType === "tukang" && (
+        {(context.placements?.length > 0 ||
+          context.user.employeeType === "tukang") && (
           <div className="worker-aside">
             <section className="content-card">
               <div className="section-icon-heading">
                 <MapPin size={18} />
-                <h2>Project Aktif</h2>
+                <h2>Anda Ditempatkan di Project</h2>
               </div>
-              {context.project ? (
-                <>
-                  <p className="project-name">{context.project.name}</p>
-                  <p className="worker-help">{context.project.address}</p>
-                </>
+              {record && context.project && (
+                <p className="worker-help">
+                  Project saat absen masuk: {context.project.name}
+                </p>
+              )}
+              {context.placements?.length ? (
+                context.placements.map((p) => (
+                  <div key={p.id} className="placement-summary">
+                    <span className="badge badge-active">Project Aktif</span>
+                    <p className="project-name">{p.name}</p>
+                    <p className="worker-help">{p.address}</p>
+                  </div>
+                ))
               ) : (
                 <p className="worker-help">
-                  Belum ada penempatan project aktif. Hubungi Admin sebelum
-                  melakukan absen masuk.
+                  Belum ada penempatan project aktif.
                 </p>
               )}
             </section>
@@ -394,7 +447,7 @@ export default function AttendancePanel({ initialContext }) {
       </div>
       <dialog
         ref={dialog}
-        className="admin-dialog camera-dialog"
+        className={`admin-dialog camera-dialog${photo ? " has-photo" : ""}`}
         onClose={() => {
           stopCamera();
           setPhoto("");
@@ -424,6 +477,23 @@ export default function AttendancePanel({ initialContext }) {
           </button>
         </div>
         <div className="dialog-body">
+          {mode === "in" && context.placements?.length > 1 && (
+            <label className="camera-project-choice">
+              Project penempatan
+              <select
+                value={selectedPlacement}
+                disabled={pending}
+                onChange={(e) => setSelectedPlacement(e.target.value)}
+              >
+                <option value="">Pilih project untuk absen masuk</option>
+                {context.placements.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="camera-frame">
             {photo ? (
               <Image
@@ -454,7 +524,7 @@ export default function AttendancePanel({ initialContext }) {
               </>
             )}
           </div>
-          {needsWork && (
+          {needsWork && photo && (
             <div className="early-reason-form">
               <label>
                 Jenis pekerjaan
@@ -504,7 +574,7 @@ export default function AttendancePanel({ initialContext }) {
               )}
             </div>
           )}
-          {needsReason && (
+          {needsReason && photo && (
             <div className="early-reason-form">
               <Alert variant="warning">
                 Anda akan pulang sekitar {durationLabel(earlyNow)} lebih awal.
@@ -553,6 +623,9 @@ export default function AttendancePanel({ initialContext }) {
                 loading={pending}
                 disabled={
                   stale ||
+                  (mode === "in" &&
+                    context.placements?.length > 1 &&
+                    !selectedPlacement) ||
                   invalidWork ||
                   (needsReason &&
                     (!reasonCategory || reasonText.trim().length < 5))
