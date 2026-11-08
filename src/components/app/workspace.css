@@ -2784,6 +2784,34 @@ body:has(dialog[open]) {
 .photo-week h2 {
   margin-bottom: 18px;
 }
+.photo-week-collapsible > summary {
+  cursor: pointer;
+  padding: 4px 0;
+  overflow-wrap: anywhere;
+}
+.photo-week-collapsible > summary strong {
+  font-size: 14px;
+}
+.photo-week-collapsible > summary span {
+  display: inline-block;
+  margin-left: 14px;
+  color: #8b7965;
+  font-size: 11px;
+}
+.photo-week-collapsible[open] > summary {
+  margin-bottom: 18px;
+}
+.photo-week-collapsible > summary:focus-visible {
+  outline: 2px solid #8b6948;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+@media (max-width: 600px) {
+  .photo-week-collapsible > summary span {
+    display: block;
+    margin: 8px 0 0 18px;
+  }
+}
 .photo-recap-table {
   min-width: 1450px;
   table-layout: fixed;

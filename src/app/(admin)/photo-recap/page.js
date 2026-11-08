@@ -105,10 +105,17 @@ export default async function Page({ searchParams }) {
         const rows = week.users.filter((u) => selectedUsers.has(u.userId));
         if (!rows.length) return null;
         return (
-          <section className="content-card photo-week" key={week.start}>
-            <h2>
-              Minggu ke-{weekIndex + 1} · {week.start} – {week.dates[6]}
-            </h2>
+          <details
+            className="content-card photo-week photo-week-collapsible"
+            key={week.start}
+            open
+          >
+            <summary>
+              <strong>
+                Minggu ke-{weekIndex + 1} · {week.start} – {week.dates[6]}
+              </strong>
+              <span>{rows.length} pengguna pada halaman ini</span>
+            </summary>
             <p className="muted recap-scroll-hint">
               Geser tabel ke samping untuk melihat setiap hari. Nama dan total
               kehadiran tetap terlihat.
@@ -239,7 +246,7 @@ export default async function Page({ searchParams }) {
                 </tbody>
               </table>
             </div>
-          </section>
+          </details>
         );
       })}
       {!data.records.length && (
