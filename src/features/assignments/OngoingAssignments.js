@@ -260,8 +260,20 @@ export default function OngoingAssignments({
           Reset Filter
         </button>
       </div>
-      <div className="table-scroll">
-        <table className="admin-table">
+      <div
+        className="table-scroll employee-placement-scroll"
+        tabIndex={0}
+        role="region"
+        aria-label="Daftar penempatan karyawan, geser ke samping pada layar kecil"
+      >
+        <table className="admin-table employee-placement-table">
+          <colgroup>
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "30%" }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Pengguna</th>

@@ -152,8 +152,8 @@ export default function AttendancePanel({ initialContext }) {
     setSelectedPlacement(
       context.placements?.length === 1 ? context.placements[0].id : "",
     );
-    setWorkType("");
-    setWorkProject("");
+    setWorkType(kind === "out" && context.defaultWorkProject ? "project" : "");
+    setWorkProject(kind === "out" ? context.defaultWorkProject?.id || "" : "");
     setWorkNote("");
     setReasonCategory("");
     setReasonText("");
@@ -533,16 +533,37 @@ export default function AttendancePanel({ initialContext }) {
                   disabled={pending}
                   onChange={(event) => {
                     setWorkType(event.target.value);
-                    setWorkProject("");
+                    setWorkProject(
+                      event.target.value === "project"
+                        ? context.defaultWorkProject?.id || ""
+                        : "",
+                    );
                     setWorkNote("");
                   }}
                 >
-                  <option value="">Pilih jenis pekerjaan</option>
-                  <option value="project">Project</option>
-                  <option value="operational">Operasional</option>
+                  {!context.defaultWorkProject && (
+                    <option value="">Pilih jenis pekerjaan</option>
+                  )}
+                  <option value="project">
+                    {context.defaultWorkProject
+                      ? "Sesuai project penempatan"
+                      : "Project"}
+                  </option>
+                  <option value="operational">
+                    Operasional / Project lain
+                  </option>
                 </select>
               </label>
-              {workType === "project" && (
+              {workType === "project" && context.defaultWorkProject && (
+                <div className="worker-help">
+                  <strong>{context.defaultWorkProject.name}</strong>
+                  <p>
+                    Mengikuti project saat absen masuk. Jika mengerjakan project
+                    lain, pilih Operasional dan isi keterangan.
+                  </p>
+                </div>
+              )}
+              {workType === "project" && !context.defaultWorkProject && (
                 <label>
                   Project
                   <select

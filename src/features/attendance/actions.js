@@ -92,6 +92,12 @@ export async function attendanceContext() {
     })),
     user: { name: user.name, employeeType: user.employeeType },
     requiresWorkNote,
+    defaultWorkProject: row?.projectId
+      ? {
+          id: row.projectId,
+          name: row.projectNameSnapshot || "Project saat absen masuk",
+        }
+      : null,
     workProjects,
     date,
     dateLabel: date.split("-").reverse().join("/"),
@@ -184,9 +190,22 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
         kind === "out" &&
         (existing.employeeTypeSnapshot || freshUser.employeeType) === "karyawan"
       ) {
-        if (!["project", "operational"].includes(work?.type))
+        const workType = work?.type || (existing.projectId ? "project" : "");
+        if (!["project", "operational"].includes(workType))
           throw new Error("Pilih jenis pekerjaan sebelum absen pulang.");
-        if (work.type === "project") {
+        if (workType === "project" && existing.projectId) {
+          // Keep the project captured at check-in even if placements/master data change.
+          if (work?.projectId && work.projectId !== existing.projectId)
+            throw new Error(
+              "Untuk project lain, pilih Operasional dan isi keterangan.",
+            );
+          workValues = {
+            workType: "project",
+            workNote: null,
+            reportedProjectId: existing.projectId,
+            reportedProjectName: existing.projectNameSnapshot,
+          };
+        } else if (workType === "project") {
           if (typeof work.projectId !== "string")
             throw new Error("Pilih project yang aktif.");
           const [project] = await tx
@@ -330,6 +349,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
     const known = [
       "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk.",
       "Pilih jenis pekerjaan sebelum absen pulang.",
+      "Untuk project lain, pilih Operasional dan isi keterangan.",
       "Pilih project penempatan sebelum absen masuk.",
       "Penempatan sudah berubah. Muat ulang lalu pilih project kembali.",
       "Pilih project yang aktif.",

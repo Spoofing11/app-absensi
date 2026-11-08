@@ -2940,8 +2940,42 @@ body:has(dialog[open]) {
 }
 .placement-row-actions {
   display: flex;
+  justify-content: flex-end;
+  align-items: center;
   gap: 7px;
   flex-wrap: wrap;
+}
+.employee-placement-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.employee-placement-table {
+  min-width: 920px;
+  table-layout: fixed;
+  white-space: normal;
+}
+.employee-placement-table th,
+.employee-placement-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.employee-placement-table td:last-child small {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.employee-placement-table .placement-row-actions button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ongoing-placements {
+  min-width: 0;
+  max-width: 100%;
 }
 .photo-week {
   min-width: 0;
