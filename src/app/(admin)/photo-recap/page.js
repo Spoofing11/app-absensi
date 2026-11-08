@@ -109,16 +109,29 @@ export default async function Page({ searchParams }) {
             <h2>
               Minggu ke-{weekIndex + 1} · {week.start} – {week.dates[6]}
             </h2>
+            <p className="muted recap-scroll-hint">
+              Geser tabel ke samping untuk melihat setiap hari. Nama dan total
+              kehadiran tetap terlihat.
+            </p>
             <div
-              className="table-scroll"
+              className="table-scroll photo-recap-scroll"
               tabIndex={0}
               role="region"
               aria-label={`Rekap minggu ${week.start}`}
             >
               <table className="admin-table photo-recap-table">
+                <colgroup>
+                  <col className="recap-name-column" />
+                  {week.dates.map((date) => (
+                    <col key={date} className="recap-day-column" />
+                  ))}
+                  <col className="recap-total-column" />
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>Nama Pengguna</th>
+                    <th scope="col" className="recap-person">
+                      Nama Pengguna
+                    </th>
                     {week.dates.map((date) => (
                       <th key={date}>
                         {new Date(date + "T00:00:00Z").toLocaleDateString(
@@ -129,13 +142,17 @@ export default async function Page({ searchParams }) {
                         {date}
                       </th>
                     ))}
-                    <th>Total Kehadiran</th>
+                    <th scope="col" className="recap-total">
+                      Total
+                      <br />
+                      Kehadiran
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((person) => (
                     <tr key={person.userId}>
-                      <td>
+                      <td className="recap-person">
                         <strong>{person.name}</strong>
                         <small className="block muted">{person.code}</small>
                       </td>
@@ -213,8 +230,9 @@ export default async function Page({ searchParams }) {
                           </td>
                         );
                       })}
-                      <td>
-                        <strong>{person.total}</strong> hari
+                      <td className="recap-total">
+                        <strong>{person.total}</strong>
+                        <span className="block">hari</span>
                       </td>
                     </tr>
                   ))}

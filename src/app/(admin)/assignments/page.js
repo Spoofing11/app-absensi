@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/server/db";
 import {
   users,
@@ -19,13 +20,17 @@ import AssignmentPanel from "@/features/assignments/AssignmentPanel";
 
 export const metadata = { title: "Penempatan Project" };
 
-export default async function AssignmentsPage() {
+export default async function AssignmentsPage({ searchParams }) {
   const actor = await requirePermission("assignments");
+  const params = await searchParams;
+  const tab = params?.tab === "tukang" ? "tukang" : "karyawan";
+  const permissions = (await permissionsFor(actor)).assignments;
   const members = await db
     .select({
       id: users.id,
       name: users.name,
       roleId: users.roleId,
+      employeeType: users.employeeType,
       role: users.role,
       roleName: roles.name,
     })
@@ -48,6 +53,7 @@ export default async function AssignmentsPage() {
       assignmentType: projectAssignments.assignmentType,
       isActive: projectAssignments.isActive,
       role: users.role,
+      roleId: users.roleId,
       roleName: roles.name,
       id: projectAssignments.id,
       workerId: projectAssignments.workerId,
@@ -98,28 +104,52 @@ export default async function AssignmentsPage() {
           <p>Kelola penempatan harian dan project aktif pengguna.</p>
         </div>
       </div>
-      <OngoingAssignments
-        rows={rows.filter((row) => row.assignmentType === "ongoing")}
-        users={members}
-        projects={projectRows}
-        permissions={(await permissionsFor(actor)).assignments}
-      />
-      <AssignmentPanel
-        permissions={(await permissionsFor(actor)).assignments}
-        rows={rows
-          .filter((row) => row.assignmentType === "daily")
-          .map((row) => ({
-            ...row,
-            used: used.has(row.id),
-            attendanceStatus:
-              attendanceByAssignment.get(`${row.id}:${row.workDate}`) ||
-              absenceByAssignment.get(`${row.id}:${row.workDate}`) ||
-              "none",
-          }))}
-        workers={workers}
-        projects={projectRows}
-        today={formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd")}
-      />
+      <nav
+        className="assignment-tabs placement-main-tabs"
+        aria-label="Jenis penempatan"
+      >
+        <Link
+          href="/assignments?tab=karyawan"
+          className={tab === "karyawan" ? "active" : ""}
+          aria-current={tab === "karyawan" ? "page" : undefined}
+        >
+          Karyawan
+        </Link>
+        <Link
+          href="/assignments?tab=tukang"
+          className={tab === "tukang" ? "active" : ""}
+          aria-current={tab === "tukang" ? "page" : undefined}
+        >
+          Tukang
+        </Link>
+      </nav>
+      {tab === "karyawan" ? (
+        <OngoingAssignments
+          rows={rows
+            .filter((row) => row.assignmentType === "ongoing")
+            .map((row) => ({ ...row, used: used.has(row.id) }))}
+          users={members.filter((u) => u.employeeType === "karyawan")}
+          projects={projectRows}
+          permissions={permissions}
+        />
+      ) : (
+        <AssignmentPanel
+          permissions={permissions}
+          rows={rows
+            .filter((row) => row.assignmentType === "daily")
+            .map((row) => ({
+              ...row,
+              used: used.has(row.id),
+              attendanceStatus:
+                attendanceByAssignment.get(`${row.id}:${row.workDate}`) ||
+                absenceByAssignment.get(`${row.id}:${row.workDate}`) ||
+                "none",
+            }))}
+          workers={workers}
+          projects={projectRows}
+          today={formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd")}
+        />
+      )}
     </>
   );
 }

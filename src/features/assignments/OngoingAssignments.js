@@ -5,6 +5,8 @@ import {
   saveOngoingAssignment,
   deactivateAssignment,
   reactivateAssignment,
+  updateOngoingAssignment,
+  deleteAssignment,
 } from "./actions";
 import { useTimedNotice } from "@/components/ui/useTimedNotice";
 export default function OngoingAssignments({
@@ -15,6 +17,12 @@ export default function OngoingAssignments({
 }) {
   const router = useRouter();
   const dialog = useRef(null);
+  const [editing, setEditing] = useState(null);
+  const [listQuery, setListQuery] = useState("");
+  const [listRole, setListRole] = useState("");
+  const [listProject, setListProject] = useState("");
+  const [listStatus, setListStatus] = useState("");
+  const [page, setPage] = useState(1);
   const [role, setRole] = useState("");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,16 +32,93 @@ export default function OngoingAssignments({
   const [project, setProject] = useState("");
   const roleOptions = [
     ...new Map(
-      users.map((u) => [u.roleId || u.role, u.roleName || u.role]),
+      [...users, ...rows].map((u) => [
+        u.roleId || u.role,
+        u.roleName || u.role,
+      ]),
     ).entries(),
   ];
+  const filtered = rows.filter(
+    (row) =>
+      (!listRole || (row.roleId || row.role) === listRole) &&
+      (!listProject || row.projectId === listProject) &&
+      (!listStatus ||
+        (listStatus === "active" ? row.isActive : !row.isActive)) &&
+      `${row.worker} ${row.project}`
+        .toLowerCase()
+        .includes(listQuery.trim().toLowerCase()),
+  );
+  const pages = Math.max(1, Math.ceil(filtered.length / 10));
+  const currentPage = Math.min(page, pages);
+  const visible = filtered.slice((currentPage - 1) * 10, currentPage * 10);
+  const filterProjects = [
+    ...new Map(
+      [
+        ...projects,
+        ...rows.map((r) => ({ id: r.projectId, name: r.project })),
+      ].map((p) => [p.id, p]),
+    ).values(),
+  ];
+  const formProjects =
+    editing && !projects.some((p) => p.id === editing.projectId)
+      ? [
+          ...projects,
+          { id: editing.projectId, name: `${editing.project} (nonaktif)` },
+        ]
+      : projects;
+  const formUsers =
+    editing && !users.some((u) => u.id === editing.workerId)
+      ? [
+          ...users,
+          {
+            id: editing.workerId,
+            name: `${editing.worker} (tidak aktif)`,
+            roleId: editing.roleId,
+            role: editing.role,
+            roleName: editing.roleName,
+          },
+        ]
+      : users;
+  function open(row = null) {
+    setEditing(row);
+    setChosen(row ? [row.workerId] : []);
+    setProject(row?.projectId || "");
+    setQuery("");
+    setRole(row?.roleId || row?.role || "");
+    setError("");
+    dialog.current.showModal();
+  }
+  async function remove(row) {
+    if (!window.confirm(`Hapus penempatan ${row.worker} di ${row.project}?`))
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.set("id", row.id);
+      const result = await deleteAssignment(form);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setNotice("Penempatan berhasil dihapus.");
+      router.refresh();
+    } catch {
+      setError("Penempatan belum dapat dihapus.");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submit(event) {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
       const form = new FormData(event.currentTarget);
-      const result = await saveOngoingAssignment(form);
+      if (editing) form.set("id", editing.id);
+      const result = editing
+        ? await updateOngoingAssignment(form)
+        : await saveOngoingAssignment(form);
       if (result?.error) {
         setError(result.error);
         return;
@@ -78,28 +163,17 @@ export default function OngoingAssignments({
   return (
     <section className="content-card ongoing-placements">
       <div className="section-icon-heading">
-        <h2>Penempatan Tanpa Batas Tanggal</h2>
+        <h2>Penempatan Karyawan</h2>
         {permissions.create && (
-          <button
-            type="button"
-            className="admin-button"
-            onClick={() => {
-              setChosen([]);
-              setProject("");
-              setQuery("");
-              setRole("");
-              setError("");
-              dialog.current.showModal();
-            }}
-          >
+          <button type="button" className="admin-button" onClick={() => open()}>
             Tambah Penempatan
           </button>
         )}
       </div>
       <p className="muted">
         Berlaku sampai dinonaktifkan. Satu pengguna boleh memiliki beberapa
-        project aktif. Untuk tukang, gunakan penempatan harian di bawah jika
-        bekerja berdasarkan tanggal.
+        project aktif. Gunakan filter untuk mencari pengguna, role, project,
+        atau status.
       </p>
       {notice && (
         <p role="status" className="success-notice">
@@ -111,6 +185,81 @@ export default function OngoingAssignments({
           {error}
         </p>
       )}
+      <div className="placement-filters">
+        <label>
+          Cari pengguna / project
+          <input
+            type="search"
+            value={listQuery}
+            onChange={(e) => {
+              setListQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Nama pengguna atau project"
+          />
+        </label>
+        <label>
+          Role
+          <select
+            value={listRole}
+            onChange={(e) => {
+              setListRole(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Semua Role</option>
+            {roleOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Project
+          <select
+            value={listProject}
+            onChange={(e) => {
+              setListProject(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Semua Project</option>
+            {filterProjects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Status
+          <select
+            value={listStatus}
+            onChange={(e) => {
+              setListStatus(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Nonaktif</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          className="admin-button secondary"
+          onClick={() => {
+            setListQuery("");
+            setListRole("");
+            setListProject("");
+            setListStatus("");
+            setPage(1);
+          }}
+        >
+          Reset Filter
+        </button>
+      </div>
       <div className="table-scroll">
         <table className="admin-table">
           <thead>
@@ -123,33 +272,91 @@ export default function OngoingAssignments({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {visible.map((row) => (
               <tr key={row.id}>
                 <td>{row.worker}</td>
                 <td>{row.roleName || row.role}</td>
                 <td>{row.project}</td>
                 <td>{row.isActive ? "Aktif" : "Nonaktif"}</td>
                 <td>
-                  {permissions.edit && (
-                    <button
-                      type="button"
-                      className="admin-button secondary"
-                      disabled={busy}
-                      onClick={() => deactivate(row.id, row.isActive)}
-                    >
-                      {row.isActive ? "Nonaktifkan" : "Aktifkan"}
-                    </button>
+                  <div className="placement-row-actions">
+                    {permissions.edit && (
+                      <button
+                        type="button"
+                        className="admin-button secondary"
+                        disabled={busy || row.used}
+                        title={
+                          row.used
+                            ? "Sudah digunakan untuk absensi/ketidakhadiran. Nonaktifkan untuk perubahan berikutnya."
+                            : "Edit penempatan"
+                        }
+                        onClick={() => open(row)}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {permissions.delete && (
+                      <button
+                        type="button"
+                        className="admin-button secondary"
+                        disabled={busy || row.used}
+                        title={
+                          row.used
+                            ? "Riwayat masih menggunakan penempatan ini."
+                            : "Hapus penempatan"
+                        }
+                        onClick={() => remove(row)}
+                      >
+                        Hapus
+                      </button>
+                    )}
+                    {permissions.edit && (
+                      <button
+                        type="button"
+                        className="admin-button secondary"
+                        disabled={busy}
+                        onClick={() => deactivate(row.id, row.isActive)}
+                      >
+                        {row.isActive ? "Nonaktifkan" : "Aktifkan"}
+                      </button>
+                    )}
+                  </div>
+                  {row.used && (
+                    <small className="block muted">
+                      Sudah digunakan untuk absensi / ketidakhadiran
+                    </small>
                   )}
                 </td>
               </tr>
             ))}
-            {!rows.length && (
+            {!filtered.length && (
               <tr>
-                <td colSpan={5}>Belum ada penempatan tanpa batas tanggal.</td>
+                <td colSpan={5}>Tidak ada penempatan sesuai filter.</td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+      <div className="pagination">
+        <span>
+          {filtered.length} penempatan · Halaman {currentPage} / {pages}
+        </span>
+        <button
+          type="button"
+          className="admin-button secondary"
+          disabled={currentPage <= 1}
+          onClick={() => setPage(currentPage - 1)}
+        >
+          Sebelumnya
+        </button>
+        <button
+          type="button"
+          className="admin-button secondary"
+          disabled={currentPage >= pages}
+          onClick={() => setPage(currentPage + 1)}
+        >
+          Berikutnya
+        </button>
       </div>
       <dialog
         ref={dialog}
@@ -160,7 +367,9 @@ export default function OngoingAssignments({
         }}
       >
         <div className="dialog-heading">
-          <h2 id="ongoing-title">Tambah Penempatan Project</h2>
+          <h2 id="ongoing-title">
+            {editing ? "Edit Penempatan" : "Tambah Penempatan Karyawan"}
+          </h2>
         </div>
         <form onSubmit={submit}>
           <fieldset disabled={busy} className="assignment-fieldset">
@@ -173,11 +382,11 @@ export default function OngoingAssignments({
                   value={project}
                   onChange={(e) => {
                     setProject(e.target.value);
-                    setChosen([]);
+                    if (!editing) setChosen([]);
                   }}
                 >
                   <option value="">Pilih project</option>
-                  {projects.map((p) => (
+                  {formProjects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
@@ -186,7 +395,13 @@ export default function OngoingAssignments({
               </label>
               <label>
                 Role
-                <select value={role} onChange={(e) => setRole(e.target.value)}>
+                <select
+                  value={role}
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    if (editing) setChosen([]);
+                  }}
+                >
                   <option value="">Semua role</option>
                   {roleOptions.map(([id, name]) => (
                     <option key={id} value={id}>
@@ -213,7 +428,7 @@ export default function OngoingAssignments({
                   <input key={id} type="hidden" name="userId" value={id} />
                 ))}
                 <div className="assignment-worker-options">
-                  {users
+                  {formUsers
                     .filter(
                       (u) =>
                         (!role || (u.roleId || u.role) === role) &&
@@ -226,7 +441,8 @@ export default function OngoingAssignments({
                         (r) =>
                           r.workerId === u.id &&
                           r.projectId === project &&
-                          r.isActive,
+                          r.isActive &&
+                          r.id !== editing?.id,
                       );
                       return (
                         <label
@@ -240,14 +456,16 @@ export default function OngoingAssignments({
                           }
                         >
                           <input
-                            type="checkbox"
+                            type={editing ? "radio" : "checkbox"}
                             disabled={conflict || !project}
                             checked={chosen.includes(u.id)}
                             onChange={(e) =>
                               setChosen((old) =>
-                                e.target.checked
-                                  ? [...old, u.id]
-                                  : old.filter((id) => id !== u.id),
+                                editing
+                                  ? [u.id]
+                                  : e.target.checked
+                                    ? [...old, u.id]
+                                    : old.filter((id) => id !== u.id),
                               )
                             }
                           />

@@ -17,7 +17,7 @@ import { requirePermission } from "@/lib/server/auth/permissions";
 import { validWorkDate } from "@/lib/shared/assignment-date";
 
 function refresh() {
-  for (const route of ["/assignments", "/users", "/dashboard"])
+  for (const route of ["/assignments", "/users", "/dashboard", "/admin/dashboard"])
     revalidatePath(route);
 }
 
@@ -216,7 +216,10 @@ export async function deleteAssignment(form) {
         .where(eq(projectAssignments.id, parsed.data))
         .for("update");
       if (!row) return;
-      if (row.workerId !== discovered.workerId || !row.workDate) {
+      if (
+        row.workerId !== discovered.workerId ||
+        (row.assignmentType !== "ongoing" && !row.workDate)
+      ) {
         expectedError =
           "Data sudah berubah atau merupakan arsip lama. Muat ulang halaman.";
         throw new Error(expectedError);
@@ -242,7 +245,7 @@ export async function deleteAssignment(form) {
         actor,
         "assignments",
         "delete",
-        `${worker?.name || "Tukang"} · ${project?.name || "Project"} · ${row.workDate}`,
+        `${worker?.name || "Pengguna"} · ${project?.name || "Project"} · ${row.workDate || "Penempatan karyawan"}`,
       );
     });
   } catch {
@@ -276,7 +279,10 @@ export async function saveOngoingAssignment(form) {
         .for("update");
       if (
         selected.length !== parsed.data.userIds.length ||
-        selected.some((u) => !u.isActive || u.role === "admin")
+        selected.some(
+          (u) =>
+            !u.isActive || u.role === "admin" || u.employeeType !== "karyawan",
+        )
       )
         throw new Error("Pengguna tidak tersedia.");
       const [project] = await tx
@@ -468,4 +474,125 @@ export async function reactivateAssignment(form) {
   });
   refresh();
   revalidatePath("/admin/dashboard");
+}
+
+export async function updateOngoingAssignment(form) {
+  const actor = await requirePermission("assignments", "edit");
+  const parsed = z
+    .object({ id: z.uuid(), userId: z.uuid(), projectId: z.uuid() })
+    .safeParse({
+      id: form.get("id"),
+      userId: form.get("userId"),
+      projectId: form.get("projectId"),
+    });
+  if (!parsed.success)
+    return { error: "Pilih pengguna dan project yang valid." };
+  let expectedError = "";
+  try {
+    await db.transaction(async (tx) => {
+      function fail(message) {
+        expectedError = message;
+        throw new Error(message);
+      }
+      const [found] = await tx
+        .select()
+        .from(projectAssignments)
+        .where(eq(projectAssignments.id, parsed.data.id));
+      if (!found || found.assignmentType !== "ongoing")
+        fail("Penempatan tidak ditemukan.");
+      const ids = [...new Set([found.workerId, parsed.data.userId])].sort();
+      const people = await tx
+        .select()
+        .from(users)
+        .where(inArray(users.id, ids))
+        .orderBy(users.id)
+        .for("update");
+      const [row] = await tx
+        .select()
+        .from(projectAssignments)
+        .where(eq(projectAssignments.id, found.id))
+        .for("update");
+      if (
+        !row ||
+        row.workerId !== found.workerId ||
+        row.assignmentType !== "ongoing"
+      )
+        fail("Penempatan sudah berubah. Muat ulang halaman.");
+      try {
+        await ensureUnused(tx, row.id);
+      } catch {
+        fail(
+          "Penempatan sudah digunakan untuk absensi atau ketidakhadiran. Nonaktifkan lalu buat penempatan baru untuk perubahan berikutnya.",
+        );
+      }
+      const person = people.find((u) => u.id === parsed.data.userId);
+      if (
+        !person?.isActive ||
+        person.role === "admin" ||
+        person.employeeType !== "karyawan"
+      )
+        fail("Pilih karyawan aktif dari role yang sesuai.");
+      const [project] = await tx
+        .select()
+        .from(projects)
+        .where(
+          and(
+            eq(projects.id, parsed.data.projectId),
+            eq(projects.status, "active"),
+          ),
+        )
+        .for("share");
+      if (!project) fail("Pilih project yang aktif.");
+      if (row.isActive) {
+        const [duplicate] = await tx
+          .select({ id: projectAssignments.id })
+          .from(projectAssignments)
+          .where(
+            and(
+              eq(projectAssignments.workerId, person.id),
+              eq(projectAssignments.projectId, project.id),
+              eq(projectAssignments.assignmentType, "ongoing"),
+              eq(projectAssignments.isActive, true),
+            ),
+          )
+          .for("update");
+        if (duplicate && duplicate.id !== row.id)
+          fail("Pengguna sudah memiliki penempatan aktif pada project ini.");
+      }
+      await tx
+        .update(projectAssignments)
+        .set({
+          workerId: person.id,
+          projectId: project.id,
+          updatedById: actor.id,
+        })
+        .where(eq(projectAssignments.id, row.id));
+      await tx
+        .delete(notifications)
+        .where(eq(notifications.assignmentId, row.id));
+      if (row.isActive)
+        await tx
+          .insert(notifications)
+          .values({
+            id: randomUUID(),
+            recipientId: person.id,
+            assignmentId: row.id,
+            initialKey: row.id,
+            projectName: project.name,
+            projectAddress: project.address,
+          });
+      await recordActivity(
+        tx,
+        actor,
+        "assignments",
+        "edit",
+        `${person.name} → ${project.name} · Koreksi penempatan`,
+      );
+    });
+    refresh();
+    revalidatePath("/admin/dashboard");
+    return { success: "Penempatan berhasil diperbarui." };
+  } catch {
+    return { error: expectedError || "Penempatan belum dapat diperbarui." };
+  }
 }

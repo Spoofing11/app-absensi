@@ -2902,3 +2902,157 @@ body:has(dialog[open]) {
     flex: 1;
   }
 }
+
+/* Placement tabs and a horizontally scrollable weekly photo table. */
+.placement-main-tabs {
+  margin-bottom: 24px;
+}
+.placement-main-tabs a {
+  padding: 11px 22px;
+  border-radius: 7px;
+  text-decoration: none;
+  color: #786653;
+  font-size: 13px;
+}
+.placement-main-tabs a.active {
+  background: #fffefa;
+  color: #392d23;
+  box-shadow: 0 1px 4px #392d2310;
+  font-weight: 600;
+}
+.placement-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) repeat(3, minmax(110px, 1fr)) auto;
+  gap: 12px;
+  margin: 20px 0;
+  align-items: end;
+}
+.placement-filters label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+}
+.placement-filters input,
+.placement-filters select {
+  width: 100%;
+  min-width: 0;
+}
+.placement-row-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.photo-week {
+  min-width: 0;
+  max-width: 100%;
+}
+.photo-recap-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  isolation: isolate;
+}
+.photo-recap-table {
+  min-width: 1584px;
+  white-space: normal;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.photo-recap-table .recap-name-column {
+  width: 180px;
+}
+.photo-recap-table .recap-day-column {
+  width: 184px;
+}
+.photo-recap-table .recap-total-column {
+  width: 116px;
+}
+.photo-recap-table th.recap-person,
+.photo-recap-table td.recap-person {
+  width: 180px;
+}
+.photo-recap-table th.recap-total,
+.photo-recap-table td.recap-total {
+  width: 116px;
+}
+.photo-recap-table th,
+.photo-recap-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+}
+.photo-recap-table .recap-person {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fffefa;
+  box-shadow: 3px 0 5px #392d230a;
+}
+.photo-recap-table .recap-total {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #f3ede2;
+  text-align: center;
+  box-shadow: -3px 0 5px #392d2312;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.photo-recap-table th.recap-person,
+.photo-recap-table th.recap-total {
+  z-index: 3;
+  background: #eee7dc;
+}
+.photo-recap-table .recap-total strong {
+  font-size: 22px;
+  line-height: 1.3;
+}
+.photo-recap-table .recap-photo-pair > div {
+  min-width: 0;
+}
+.recap-scroll-hint {
+  font-size: 11px;
+  margin: 0 0 12px;
+}
+@media (max-width: 1000px) {
+  .placement-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .placement-filters {
+    grid-template-columns: 1fr;
+  }
+  .placement-main-tabs {
+    display: flex;
+  }
+  .placement-main-tabs a {
+    flex: 1;
+    text-align: center;
+  }
+  .photo-recap-table .recap-name-column {
+    width: 120px;
+  }
+  .photo-recap-table .recap-total-column {
+    width: 92px;
+  }
+  .photo-recap-table th.recap-person,
+  .photo-recap-table td.recap-person {
+    width: 120px;
+  }
+  .photo-recap-table th.recap-total,
+  .photo-recap-table td.recap-total {
+    width: 92px;
+  }
+  .photo-recap-table .recap-person {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .photo-recap-table .recap-total {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
