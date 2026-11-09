@@ -1,7 +1,9 @@
 "use server";
 import { recordActivity } from "@/features/activity-logs/server";
+import { formatInTimeZone } from "date-fns-tz";
+import { env } from "@/lib/server/env";
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
@@ -17,8 +19,55 @@ import { requirePermission } from "@/lib/server/auth/permissions";
 import { validWorkDate } from "@/lib/shared/assignment-date";
 
 function refresh() {
-  for (const route of ["/assignments", "/users", "/dashboard", "/admin/dashboard"])
+  for (const route of [
+    "/assignments",
+    "/users",
+    "/dashboard",
+    "/admin/dashboard",
+    "/history",
+    "/approvals",
+    "/photo-recap",
+  ])
     revalidatePath(route);
+}
+
+// A correction applies only to this user's unfinished, undecided attendance today.
+// Earlier days, photos, times, schedules and decisions remain historical snapshots.
+async function correctOpenAttendance(tx, assignment, project = null) {
+  const today = formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd");
+  const records = await tx
+    .select({ id: attendances.id, oldProject: attendances.projectNameSnapshot })
+    .from(attendances)
+    .where(
+      and(
+        eq(attendances.projectAssignmentId, assignment.id),
+        eq(attendances.userId, assignment.workerId),
+        eq(attendances.workDate, today),
+        isNull(attendances.checkOutAt),
+        notInArray(attendances.approvalStatus, ["approved", "rejected"]),
+      ),
+    )
+    .for("update");
+  if (records.length)
+    await tx
+      .update(attendances)
+      .set({
+        projectAssignmentId: project ? assignment.id : null,
+        projectId: project?.id || null,
+        projectCodeSnapshot: project?.projectCode || null,
+        projectNameSnapshot: project?.name || null,
+        workType: project ? "project" : "operational",
+        workNote: null,
+        reportedProjectId: null,
+        reportedProjectName: null,
+      })
+      .where(
+        inArray(
+          attendances.id,
+          records.map((r) => r.id),
+        ),
+      );
+  return records;
 }
 
 async function ensureUnused(tx, id) {
@@ -224,11 +273,25 @@ export async function deleteAssignment(form) {
           "Data sudah berubah atau merupakan arsip lama. Muat ulang halaman.";
         throw new Error(expectedError);
       }
-      try {
-        await ensureUnused(tx, row.id);
-      } catch (error) {
-        expectedError = error.message;
-        throw error;
+      let corrections = [];
+      if (row.assignmentType === "ongoing") {
+        corrections = await correctOpenAttendance(tx, row);
+        // Detach nullable links, retaining every attendance/absence and its snapshots.
+        await tx
+          .update(attendances)
+          .set({ projectAssignmentId: null })
+          .where(eq(attendances.projectAssignmentId, row.id));
+        await tx
+          .update(absences)
+          .set({ assignmentId: null })
+          .where(eq(absences.assignmentId, row.id));
+      } else {
+        try {
+          await ensureUnused(tx, row.id);
+        } catch (error) {
+          expectedError = error.message;
+          throw error;
+        }
       }
       await tx
         .delete(notifications)
@@ -245,7 +308,7 @@ export async function deleteAssignment(form) {
         actor,
         "assignments",
         "delete",
-        `${worker?.name || "Pengguna"} · ${project?.name || "Project"} · ${row.workDate || "Penempatan karyawan"}`,
+        `${worker?.name || "Pengguna"} · ${project?.name || "Project"} · ${row.workDate || "Penempatan karyawan"} · ${corrections.length} absensi terbuka menjadi Operasional${corrections.length ? ` · ID: ${corrections.map((r) => r.id).join(", ")}` : ""}`,
       );
     });
   } catch {
@@ -518,13 +581,6 @@ export async function updateOngoingAssignment(form) {
         row.assignmentType !== "ongoing"
       )
         fail("Penempatan sudah berubah. Muat ulang halaman.");
-      try {
-        await ensureUnused(tx, row.id);
-      } catch {
-        fail(
-          "Penempatan sudah digunakan untuk absensi atau ketidakhadiran. Nonaktifkan lalu buat penempatan baru untuk perubahan berikutnya.",
-        );
-      }
       const person = people.find((u) => u.id === parsed.data.userId);
       if (
         !person?.isActive ||
@@ -559,6 +615,23 @@ export async function updateOngoingAssignment(form) {
         if (duplicate && duplicate.id !== row.id)
           fail("Pengguna sudah memiliki penempatan aktif pada project ini.");
       }
+      const changingUser = row.workerId !== person.id;
+      const changingProject = row.projectId !== project.id;
+      const corrections =
+        changingUser || changingProject
+          ? await correctOpenAttendance(tx, row, changingUser ? null : project)
+          : [];
+      if (changingUser) {
+        // Never attach the old user's history to a new employee's placement.
+        await tx
+          .update(attendances)
+          .set({ projectAssignmentId: null })
+          .where(eq(attendances.projectAssignmentId, row.id));
+        await tx
+          .update(absences)
+          .set({ assignmentId: null })
+          .where(eq(absences.assignmentId, row.id));
+      }
       await tx
         .update(projectAssignments)
         .set({
@@ -571,22 +644,20 @@ export async function updateOngoingAssignment(form) {
         .delete(notifications)
         .where(eq(notifications.assignmentId, row.id));
       if (row.isActive)
-        await tx
-          .insert(notifications)
-          .values({
-            id: randomUUID(),
-            recipientId: person.id,
-            assignmentId: row.id,
-            initialKey: row.id,
-            projectName: project.name,
-            projectAddress: project.address,
-          });
+        await tx.insert(notifications).values({
+          id: randomUUID(),
+          recipientId: person.id,
+          assignmentId: row.id,
+          initialKey: row.id,
+          projectName: project.name,
+          projectAddress: project.address,
+        });
       await recordActivity(
         tx,
         actor,
         "assignments",
         "edit",
-        `${person.name} → ${project.name} · Koreksi penempatan`,
+        `${person.name} → ${project.name} · Koreksi penempatan ${row.assignmentCode} · Project sebelumnya ${row.projectId} · Pengguna sebelumnya ${row.workerId} · ${corrections.length} absensi terbuka dikoreksi${corrections.length ? ` · ID: ${corrections.map((r) => r.id).join(", ")}` : ""}`,
       );
     });
     refresh();

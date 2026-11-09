@@ -190,11 +190,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
         if (!["project", "operational"].includes(workType))
           throw new Error("Pilih jenis pekerjaan sebelum absen pulang.");
         if (workType === "project" && existing.projectId) {
-          // Keep the project captured at check-in even if placements/master data change.
-          if (work?.projectId && work.projectId !== existing.projectId)
-            throw new Error(
-              "Untuk project lain, pilih Operasional dan isi keterangan.",
-            );
+          // The server snapshot includes administrator corrections; ignore stale client IDs.
           workValues = {
             workType: "project",
             workNote: null,

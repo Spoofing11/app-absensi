@@ -1,9 +1,11 @@
+import { formatInTimeZone } from "date-fns-tz";
+import { env } from "@/lib/server/env";
 import { APPROVAL_LABELS } from "@/lib/shared/attendance-review";
 import Link from "next/link";
 import { ABSENCE_LABELS } from "@/features/absences/labels";
 import { requirePermission } from "@/lib/server/auth/permissions";
 import {
-  parseFilters,
+  parseHistoryFilters,
   historyData,
 } from "@/features/attendance-history/queries";
 import { durationLabel } from "@/features/attendance/policy";
@@ -21,7 +23,7 @@ export default async function Page({ searchParams }) {
   let validated;
   await requirePermission("history", "read");
   try {
-    validated = parseFilters(params);
+    validated = parseHistoryFilters(params);
   } catch (error) {
     if (error?.digest) throw error;
     return (
@@ -47,6 +49,10 @@ export default async function Page({ searchParams }) {
     roleOptions,
     projectOptions,
   } = data;
+  const today = formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd");
+  const previous = new Date(`${today}T00:00:00Z`);
+  previous.setUTCDate(previous.getUTCDate() - 1);
+  const yesterday = previous.toISOString().slice(0, 10);
   function href(changes) {
     const p = new URLSearchParams({ ...f, ...changes });
     return `/history?${p}`;
@@ -70,7 +76,30 @@ export default async function Page({ searchParams }) {
         </a>
       </div>
       <section className="data-panel">
-        <form className="history-filters" action="/history">
+        <nav
+          className="history-date-shortcuts"
+          aria-label="Pilihan cepat tanggal absensi"
+        >
+          {[
+            ["Hari Ini", today, today],
+            ["Kemarin", yesterday, yesterday],
+            ["Bulan Ini", today.slice(0, 8) + "01", today],
+          ].map(([label, from, to]) => (
+            <Link
+              key={label}
+              className="admin-button secondary"
+              href={href({ from, to, page: 1 })}
+              aria-current={f.from === from && f.to === to ? "page" : undefined}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <form
+          key={`${f.from}:${f.to}:${f.role}:${f.project}:${f.status}:${f.q}:${f.view}`}
+          className="history-filters"
+          action="/history"
+        >
           <input type="hidden" name="view" value={f.view} />
           <label>
             Dari tanggal

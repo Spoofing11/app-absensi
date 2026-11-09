@@ -148,7 +148,7 @@ export async function createPhotoRecapPdf(data) {
       30,
     );
     text(
-      "Jam merah = terlambat. No Photo = foto tidak ada/tidak tersedia atau absen pulang ditolak. Ditolak tidak dihitung hadir.",
+      "Jam merah = terlambat. No Photo = foto tidak ada/tidak tersedia atau absen pulang ditolak. Ditolak tidak dihitung hadir. Tanggal di luar pilihan tidak ditampilkan dan tidak dihitung.",
       left,
       798,
       tableWidth,
@@ -215,7 +215,7 @@ export async function createPhotoRecapPdf(data) {
             .lineTo(x, y + rowHeight)
             .stroke();
           if (date < data.filters.from || date > data.filters.to) {
-            text("Di luar filter", x + 4, y + 12, dayWidth - 8);
+            text("—", x + 4, y + 12, dayWidth - 8);
             continue;
           }
           if (!row) {

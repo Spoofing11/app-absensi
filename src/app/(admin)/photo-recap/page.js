@@ -118,7 +118,8 @@ export default async function Page({ searchParams }) {
             </summary>
             <p className="muted recap-scroll-hint">
               Geser tabel ke samping untuk melihat setiap hari. Nama dan total
-              kehadiran tetap terlihat.
+              kehadiran tetap terlihat. Tanggal di luar rentang pilihan tidak
+              ditampilkan dan tidak dihitung.
             </p>
             <div
               className="table-scroll photo-recap-scroll"
@@ -167,7 +168,7 @@ export default async function Page({ searchParams }) {
                         if (date < f.from || date > f.to)
                           return (
                             <td key={date} className="recap-outside">
-                              Di luar filter
+                              —
                             </td>
                           );
                         const row = person.days[date];

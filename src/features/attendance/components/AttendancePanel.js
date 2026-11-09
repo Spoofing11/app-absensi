@@ -110,6 +110,11 @@ export default function AttendancePanel({ initialContext }) {
       if (mounted.current) setRefreshing(false);
     }
   }
+  useEffect(() => {
+    if (mode !== "out" || !dialog.current?.open) return;
+    setWorkProject(context.defaultWorkProject?.id || "");
+    if (!context.defaultWorkProject) setWorkType("operational");
+  }, [mode, context.defaultWorkProject?.id]);
   async function startCamera() {
     stopCamera();
     const token = request.current;
@@ -246,6 +251,19 @@ export default function AttendancePanel({ initialContext }) {
       );
       if (result.error) {
         setCameraError(result.error);
+        if (mode === "out") {
+          try {
+            const latest = await attendanceContext();
+            if (mounted.current) {
+              receivedAt.current = Date.now();
+              serverTime.current = Date.parse(latest.serverNow);
+              setContext(latest);
+              setStale(false);
+            }
+          } catch {
+            setStale(true);
+          }
+        }
         return;
       }
       stopCamera();

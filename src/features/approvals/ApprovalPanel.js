@@ -23,6 +23,11 @@ function Photo({ id, kind, available }) {
     />
   );
 }
+const READINESS_LABELS = {
+  ready: "Siap direview",
+  waiting: "Menunggu absen pulang",
+  missing: "Tidak absen pulang",
+};
 export default function ApprovalPanel({ rows, canReview, today }) {
   const modal = useRef(null);
   const router = useRouter();
@@ -70,7 +75,7 @@ export default function ApprovalPanel({ rows, canReview, today }) {
       )}
       <section className="content-card">
         <div className="table-scroll">
-          <table className="admin-table">
+          <table className="admin-table approval-list-table">
             <thead>
               <tr>
                 <th>Tanggal</th>
@@ -88,7 +93,33 @@ export default function ApprovalPanel({ rows, canReview, today }) {
                   <td>{row.name}</td>
                   <td>{row.roleName || "—"}</td>
                   <td>{row.project || "—"}</td>
-                  <td>{APPROVAL_LABELS[row.approvalStatus]}</td>
+                  <td>
+                    <span
+                      className={`badge approval-badge approval-${row.approvalStatus}`}
+                    >
+                      {APPROVAL_LABELS[row.approvalStatus]}
+                    </span>
+                    {row.readiness && (
+                      <span
+                        className={`badge approval-readiness readiness-${row.readiness}`}
+                      >
+                        {READINESS_LABELS[row.readiness]}
+                      </span>
+                    )}
+                    {row.reviewedByName && (
+                      <small className="block muted">
+                        Oleh {row.reviewedByName}
+                        {row.reviewedAt
+                          ? ` · ${new Date(row.reviewedAt).toLocaleString("id-ID", { timeZone: row.timezone, dateStyle: "short", timeStyle: "short" })}`
+                          : ""}
+                      </small>
+                    )}
+                    {row.approvalReason && (
+                      <small className="block history-reason">
+                        {row.approvalReason}
+                      </small>
+                    )}
+                  </td>
                   <td>
                     <button
                       className="admin-button secondary"
@@ -101,7 +132,13 @@ export default function ApprovalPanel({ rows, canReview, today }) {
                         modal.current.showModal();
                       }}
                     >
-                      Review
+                      {row.approvalStatus !== "pending"
+                        ? "Lihat Detail"
+                        : row.readiness === "waiting"
+                          ? "Lihat"
+                          : canReview
+                            ? "Review"
+                            : "Lihat Detail"}
                     </button>
                   </td>
                 </tr>
@@ -173,7 +210,12 @@ export default function ApprovalPanel({ rows, canReview, today }) {
                   )}
                 </div>
               </div>
-              <p>Status: {APPROVAL_LABELS[selected.approvalStatus]}</p>
+              <p>
+                Status: {APPROVAL_LABELS[selected.approvalStatus]}
+                {selected.readiness
+                  ? ` · ${READINESS_LABELS[selected.readiness]}`
+                  : ""}
+              </p>
               {selected.workType && (
                 <p>
                   Laporan pekerjaan:{" "}

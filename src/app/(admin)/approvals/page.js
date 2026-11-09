@@ -1,93 +1,142 @@
 import Link from "next/link";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
-import { formatInTimeZone } from "date-fns-tz";
-import { db } from "@/lib/server/db";
-import { attendances } from "@/lib/server/db/schema";
-import { env } from "@/lib/server/env";
 import {
   requirePermission,
   permissionsFor,
 } from "@/lib/server/auth/permissions";
-import { parseFilters } from "@/features/attendance-history/queries";
+import {
+  parseApprovalFilters,
+  approvalBounds,
+  approvalData,
+  approvalHref,
+  REVIEW_TABS,
+  approvalReadiness,
+} from "@/features/approvals/queries";
 import ApprovalPanel from "@/features/approvals/ApprovalPanel";
 export const metadata = { title: "Approval Absensi" };
 export default async function Page({ searchParams }) {
   const actor = await requirePermission("approvals", "read");
-  const params = await searchParams;
   let f;
   try {
-    f = parseFilters({ ...params, status: "" });
+    f = parseApprovalFilters(await searchParams);
   } catch {
     return (
       <section className="content-card">
-        <p>Pilih rentang tanggal yang valid, maksimal 366 hari.</p>
-        <Link href="/approvals">Reset filter</Link>
+        <h1>Filter tidak valid</h1>
+        <p>
+          Gunakan tanggal sampai hari ini. Rentang dengan tanggal awal maksimal
+          366 hari.
+        </p>
+        <Link className="admin-button secondary" href="/approvals">
+          Reset filter
+        </Link>
       </section>
     );
   }
-  const status = ["pending", "approved", "rejected", "legacy"].includes(
-    params.status,
-  )
-    ? params.status
-    : "pending";
-  const where = and(
-    gte(attendances.workDate, f.from),
-    lte(attendances.workDate, f.to),
-    eq(attendances.approvalStatus, status),
-    f.q
-      ? sql`LOCATE(LOWER(${f.q}), LOWER(${attendances.fullNameSnapshot})) > 0`
-      : undefined,
-  );
-  const [count] = await db
-    .select({ total: sql`COUNT(*)` })
-    .from(attendances)
-    .where(where);
-  const pages = Math.max(1, Math.ceil(Number(count.total) / 25));
-  const page = Math.min(f.page, pages);
-  const rows = await db
-    .select()
-    .from(attendances)
-    .where(where)
-    .orderBy(
-      desc(attendances.workDate),
-      desc(attendances.checkInAt),
-      attendances.id,
-    )
-    .limit(25)
-    .offset((page - 1) * 25);
-  const href = (page) =>
-    `/approvals?${new URLSearchParams({ from: f.from, to: f.to, q: f.q, status, page: String(page) })}`;
+  const { rows, counts, roleOptions, projectOptions, pages, page, total } =
+    await approvalData(f);
+  const bounds = approvalBounds(f);
   return (
     <>
       <div className="page-heading">
-        <h1>Approval Absensi</h1>
+        <div>
+          <h1>Approval Absensi</h1>
+          <p>Periksa foto dan catatan sebelum memberi keputusan.</p>
+        </div>
       </div>
-      <form className="content-card form-grid" method="get">
+      <nav className="approval-status-tabs" aria-label="Status approval">
+        {REVIEW_TABS.map((tab) => (
+          <Link
+            key={tab.status}
+            href={approvalHref(f, { status: tab.status, page: 1 })}
+            aria-current={f.status === tab.status ? "page" : undefined}
+          >
+            <span>{tab.label}</span>
+            <strong>{counts[tab.status]}</strong>
+          </Link>
+        ))}
+      </nav>
+      <p className="muted approval-scope-note">
+        {f.dateMode === "custom"
+          ? "Jumlah tab dan tabel mengikuti rentang tanggal, role, project, dan pengguna yang sama."
+          : "Default: Menunggu mencakup seluruh antrean sampai hari ini; Disetujui dan Ditolak mencakup tanggal absensi hari ini."}
+      </p>
+      <form
+        key={`${f.status}:${f.dateMode}:${bounds.from}:${bounds.to}:${f.role}:${f.project}:${f.q}`}
+        className="content-card form-grid approval-filters"
+        method="get"
+      >
+        <input type="hidden" name="status" value={f.status} />
+        <input type="hidden" name="dateMode" value="custom" />
         <label>
           Dari tanggal
-          <input type="date" name="from" defaultValue={f.from} required />
+          <input
+            type="date"
+            name="from"
+            defaultValue={bounds.from}
+            max={f.today}
+          />
+          <small>Kosongkan untuk semua tanggal sampai batas akhir.</small>
         </label>
         <label>
           Sampai tanggal
-          <input type="date" name="to" defaultValue={f.to} required />
+          <input
+            type="date"
+            name="to"
+            defaultValue={bounds.to}
+            max={f.today}
+            required
+          />
+        </label>
+        <label>
+          Role
+          <select name="role" defaultValue={f.role}>
+            <option value="">Semua Role</option>
+            {roleOptions.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Project
+          <select name="project" defaultValue={f.project}>
+            <option value="">Semua Project</option>
+            {projectOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Pengguna
-          <input name="q" defaultValue={f.q} maxLength={100} />
+          <input
+            name="q"
+            defaultValue={f.q}
+            maxLength={100}
+            placeholder="Nama, username, atau kode"
+          />
         </label>
-        <label>
-          Status
-          <select name="status" defaultValue={status}>
-            <option value="pending">Menunggu</option>
-            <option value="approved">Disetujui</option>
-            <option value="rejected">Ditolak</option>
-            <option value="legacy">Data sebelumnya</option>
-          </select>
-        </label>
-        <button className="admin-button">Terapkan</button>
+        <div className="approval-filter-actions">
+          <button className="admin-button">Terapkan</button>
+          <Link
+            className="admin-button secondary"
+            href={approvalHref({
+              ...f,
+              dateMode: "default",
+              role: "",
+              project: "",
+              q: "",
+              page: 1,
+            })}
+          >
+            Reset
+          </Link>
+        </div>
       </form>
       <ApprovalPanel
-        today={formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd")}
+        today={f.today}
         canReview={!!(await permissionsFor(actor)).approvals?.edit}
         rows={rows.map((row) => ({
           id: row.id,
@@ -102,6 +151,7 @@ export default async function Page({ searchParams }) {
           hasOutPhoto: !!row.checkOutPhotoId,
           lateSeconds: row.lateSeconds,
           approvalStatus: row.approvalStatus,
+          readiness: approvalReadiness(row, f.today),
           approvalReason: row.approvalReason,
           reviewedByName: row.reviewedByName,
           reviewedAt: row.reviewedAt?.toISOString(),
@@ -111,11 +161,18 @@ export default async function Page({ searchParams }) {
         }))}
       />
       <div className="pagination">
-        {page > 1 && <Link href={href(page - 1)}>Sebelumnya</Link>}
+        {page > 1 && (
+          <Link href={approvalHref(f, { page: page - 1 })}>Sebelumnya</Link>
+        )}
         <span>
-          Halaman {page} / {pages}
+          {total} catatan · Halaman {page} / {pages}
         </span>
-        {page < pages && <Link href={href(page + 1)}>Berikutnya</Link>}
+        {page < pages && (
+          <Link href={approvalHref(f, { page: page + 1 })}>Berikutnya</Link>
+        )}
+        <Link href={approvalHref(f, { status: "legacy", page: 1 })}>
+          Data sebelumnya{f.status === "legacy" ? ` (${counts.legacy})` : ""}
+        </Link>
       </div>
     </>
   );

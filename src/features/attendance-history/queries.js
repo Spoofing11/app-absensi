@@ -51,6 +51,15 @@ export function parseFilters(params = {}) {
   return filter;
 }
 
+export function parseHistoryFilters(params = {}) {
+  const today = formatInTimeZone(new Date(), env.APP_TIMEZONE, "yyyy-MM-dd");
+  return parseFilters({
+    ...params,
+    from: params.from || today,
+    to: params.to || today,
+  });
+}
+
 // The same union and filter feed the list, recaps, and the complete Excel export.
 function records(f) {
   return sql`
@@ -132,7 +141,7 @@ function normalizeHistoryDates(row) {
 
 export async function exportHistoryRows(params) {
   await requirePermission("history", "read");
-  const filters = parseFilters(params);
+  const filters = parseHistoryFilters(params);
   const [rows] = await db.execute(
     sql`SELECT r.* FROM (${records(filters)}) r WHERE ${condition(filters)} ORDER BY r.date DESC, r.name, r.id`,
   );
@@ -141,7 +150,7 @@ export async function exportHistoryRows(params) {
 
 export async function historyData(params) {
   await requirePermission("history", "read");
-  const f = parseFilters(params);
+  const f = parseHistoryFilters(params);
   const source = records(f);
   const where = condition(f);
   const [roleOptions] = await db.execute(

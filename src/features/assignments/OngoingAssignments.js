@@ -89,7 +89,11 @@ export default function OngoingAssignments({
     dialog.current.showModal();
   }
   async function remove(row) {
-    if (!window.confirm(`Hapus penempatan ${row.worker} di ${row.project}?`))
+    if (
+      !window.confirm(
+        `Hapus penempatan ${row.worker} di ${row.project}? Absensi tidak dihapus. Absensi hari ini yang belum pulang akan menjadi Operasional dan wajib keterangan.`,
+      )
+    )
       return;
     setBusy(true);
     setError("");
@@ -296,12 +300,8 @@ export default function OngoingAssignments({
                       <button
                         type="button"
                         className="admin-button secondary"
-                        disabled={busy || row.used}
-                        title={
-                          row.used
-                            ? "Sudah digunakan untuk absensi/ketidakhadiran. Nonaktifkan untuk perubahan berikutnya."
-                            : "Edit penempatan"
-                        }
+                        disabled={busy}
+                        title="Edit penempatan"
                         onClick={() => open(row)}
                       >
                         Edit
@@ -311,12 +311,8 @@ export default function OngoingAssignments({
                       <button
                         type="button"
                         className="admin-button secondary"
-                        disabled={busy || row.used}
-                        title={
-                          row.used
-                            ? "Riwayat masih menggunakan penempatan ini."
-                            : "Hapus penempatan"
-                        }
+                        disabled={busy}
+                        title="Hapus penempatan tanpa menghapus absensi"
                         onClick={() => remove(row)}
                       >
                         Hapus
@@ -333,11 +329,6 @@ export default function OngoingAssignments({
                       </button>
                     )}
                   </div>
-                  {row.used && (
-                    <small className="block muted">
-                      Sudah digunakan untuk absensi / ketidakhadiran
-                    </small>
-                  )}
                 </td>
               </tr>
             ))}

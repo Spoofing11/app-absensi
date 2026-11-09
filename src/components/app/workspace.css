@@ -3173,3 +3173,123 @@ body:has(dialog[open]) {
     padding-right: 8px;
   }
 }
+
+/* Date shortcuts and approval queues share filter scope across pagination. */
+.history-date-shortcuts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 20px 24px 0;
+}
+.history-date-shortcuts a[aria-current="page"] {
+  background: #eee7dc;
+  color: #392d23;
+  border-color: #b29b80;
+}
+.approval-status-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+.approval-status-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e6dbce;
+  background: #fffefa;
+  padding: 13px 18px;
+  border-radius: 9px;
+  color: #786653;
+}
+.approval-status-tabs a[aria-current="page"] {
+  background: #eee7dc;
+  border-color: #ad9578;
+  color: #392d23;
+  font-weight: 600;
+}
+.approval-status-tabs strong {
+  border-radius: 20px;
+  padding: 3px 9px;
+  background: #e4d9cb;
+  font-size: 12px;
+}
+.approval-scope-note {
+  margin: 0 0 18px;
+  line-height: 1.6;
+}
+.approval-filters {
+  margin-bottom: 22px;
+}
+.approval-filters label {
+  min-width: 0;
+}
+.approval-filters input,
+.approval-filters select {
+  min-width: 0;
+  width: 100%;
+}
+.approval-filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.approval-badge,
+.approval-readiness {
+  margin: 2px 5px 5px 0;
+}
+.approval-approved {
+  color: #365b41;
+  background: #eaf3ec;
+}
+.approval-rejected {
+  color: #b42318;
+  background: #fce9e7;
+}
+.approval-pending,
+.readiness-ready {
+  color: #805b16;
+  background: #fbf1d9;
+}
+.readiness-waiting,
+.approval-legacy {
+  color: #706d69;
+  background: #efeeeb;
+}
+.readiness-missing {
+  color: #9a4c19;
+  background: #fcebdc;
+}
+@media (max-width: 600px) {
+  .approval-status-tabs a {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .approval-filter-actions .admin-button {
+    flex: 1;
+  }
+  .history-date-shortcuts {
+    padding: 16px 16px 0;
+  }
+}
+
+.approval-list-table {
+  min-width: 850px;
+  white-space: normal;
+}
+.approval-list-table td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.approval-list-table td:nth-child(5) {
+  max-width: 320px;
+}
+.approval-list-table td:last-child button {
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .approval-filters {
+    grid-template-columns: 1fr;
+  }
+}

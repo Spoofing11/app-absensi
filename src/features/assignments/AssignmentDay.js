@@ -207,11 +207,6 @@ export default function AssignmentDay({
                                     }
                                   </small>
                                 )}
-                                {row.used && (
-                                  <small className="muted">
-                                    Sudah digunakan untuk pencatatan · Terkunci
-                                  </small>
-                                )}
                               </div>
                               <div className="assignment-row-actions">
                                 {day && !row.used && permissions.edit && (

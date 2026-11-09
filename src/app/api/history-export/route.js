@@ -3,7 +3,7 @@ import ExcelJS from "exceljs";
 import { formatInTimeZone } from "date-fns-tz";
 import {
   exportHistoryRows,
-  parseFilters,
+  parseHistoryFilters,
 } from "@/features/attendance-history/queries";
 import { requirePermission } from "@/lib/server/auth/permissions";
 import { ABSENCE_LABELS } from "@/features/absences/labels";
@@ -41,7 +41,7 @@ export async function GET(request) {
   const params = Object.fromEntries(new URL(request.url).searchParams);
   let filters;
   try {
-    filters = parseFilters(params);
+    filters = parseHistoryFilters(params);
   } catch {
     return new Response(
       "Filter ekspor tidak valid. Gunakan rentang maksimal 366 hari.",
