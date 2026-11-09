@@ -155,7 +155,13 @@ export default function AttendancePanel({ initialContext }) {
     setSelectedPlacement(
       context.placements?.length === 1 ? context.placements[0].id : "",
     );
-    setWorkType(kind === "out" && context.defaultWorkProject ? "project" : "");
+    setWorkType(
+      kind === "out"
+        ? context.defaultWorkProject
+          ? "project"
+          : "operational"
+        : "",
+    );
     setWorkProject(kind === "out" ? context.defaultWorkProject?.id || "" : "");
     setWorkNote("");
     setReasonCategory("");
@@ -283,7 +289,10 @@ export default function AttendancePanel({ initialContext }) {
   const needsWork = mode === "out" && context.requiresWorkNote;
   const invalidWork =
     needsWork &&
-    (!workType || (workType === "project" ? !workProject : !workNote.trim()));
+    (!context.defaultWorkProject
+      ? !workNote.trim()
+      : !workType ||
+        (workType === "project" ? !workProject : !workNote.trim()));
   const needsReason = mode === "out" && earlyNow > 0;
   const checkedIn = !!record?.check_in_time;
   const finished = !!record?.check_out_time;
@@ -535,34 +544,36 @@ export default function AttendancePanel({ initialContext }) {
           </div>
           {needsWork && photo && (
             <div className="early-reason-form">
-              <label>
-                Jenis pekerjaan
-                <select
-                  value={workType}
-                  disabled={pending}
-                  onChange={(event) => {
-                    setWorkType(event.target.value);
-                    setWorkProject(
-                      event.target.value === "project"
-                        ? context.defaultWorkProject?.id || ""
-                        : "",
-                    );
-                    setWorkNote("");
-                  }}
-                >
-                  {!context.defaultWorkProject && (
-                    <option value="">Pilih jenis pekerjaan</option>
-                  )}
-                  <option value="project">
-                    {context.defaultWorkProject
-                      ? "Sesuai project penempatan"
-                      : "Project"}
-                  </option>
-                  <option value="operational">
-                    Operasional / Project lain
-                  </option>
-                </select>
-              </label>
+              {context.defaultWorkProject ? (
+                <label>
+                  Jenis pekerjaan
+                  <select
+                    value={workType}
+                    disabled={pending}
+                    onChange={(event) => {
+                      setWorkType(event.target.value);
+                      setWorkProject(
+                        event.target.value === "project"
+                          ? context.defaultWorkProject.id
+                          : "",
+                      );
+                      setWorkNote("");
+                    }}
+                  >
+                    <option value="project">Sesuai project penempatan</option>
+                    <option value="operational">
+                      Operasional / Project lain
+                    </option>
+                  </select>
+                </label>
+              ) : (
+                <p className="worker-help">
+                  <strong>Operasional</strong>
+                  <br />
+                  Isi keterangan pekerjaan hari ini sebelum menyimpan absen
+                  pulang.
+                </p>
+              )}
               {workType === "project" && context.defaultWorkProject && (
                 <div className="worker-help">
                   <strong>{context.defaultWorkProject.name}</strong>
@@ -572,24 +583,7 @@ export default function AttendancePanel({ initialContext }) {
                   </p>
                 </div>
               )}
-              {workType === "project" && !context.defaultWorkProject && (
-                <label>
-                  Project
-                  <select
-                    value={workProject}
-                    disabled={pending}
-                    onChange={(event) => setWorkProject(event.target.value)}
-                  >
-                    <option value="">Pilih project</option>
-                    {context.workProjects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {workType === "operational" && (
+              {(!context.defaultWorkProject || workType === "operational") && (
                 <label>
                   Keterangan operasional
                   <textarea

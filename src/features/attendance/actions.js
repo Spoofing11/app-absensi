@@ -12,7 +12,6 @@ import {
   mediaFiles,
   roles,
   absences,
-  projects,
 } from "@/lib/server/db/schema";
 import { requireAttendanceUser } from "@/lib/server/auth/attendance";
 import { canUseAttendance } from "@/lib/shared/attendance-access";
@@ -61,13 +60,6 @@ export async function attendanceContext() {
     : [];
   const requiresWorkNote =
     (row?.employeeTypeSnapshot || user.employeeType) === "karyawan";
-  const workProjects = requiresWorkNote
-    ? await db
-        .select({ id: projects.id, name: projects.name })
-        .from(projects)
-        .where(eq(projects.status, "active"))
-        .orderBy(projects.name)
-    : [];
   const snapshot = row
     ? {
         name: row.scheduleNameSnapshot,
@@ -98,7 +90,6 @@ export async function attendanceContext() {
           name: row.projectNameSnapshot || "Project saat absen masuk",
         }
       : null,
-    workProjects,
     date,
     dateLabel: date.split("-").reverse().join("/"),
     timezone: row?.timezoneSnapshot || env.APP_TIMEZONE,
@@ -190,7 +181,12 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
         kind === "out" &&
         (existing.employeeTypeSnapshot || freshUser.employeeType) === "karyawan"
       ) {
-        const workType = work?.type || (existing.projectId ? "project" : "");
+        const workType =
+          work?.type || (existing.projectId ? "project" : "operational");
+        if (!existing.projectId && workType !== "operational")
+          throw new Error(
+            "Tanpa penempatan project saat absen masuk, gunakan Operasional dan isi keterangan.",
+          );
         if (!["project", "operational"].includes(workType))
           throw new Error("Pilih jenis pekerjaan sebelum absen pulang.");
         if (workType === "project" && existing.projectId) {
@@ -204,26 +200,6 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
             workNote: null,
             reportedProjectId: existing.projectId,
             reportedProjectName: existing.projectNameSnapshot,
-          };
-        } else if (workType === "project") {
-          if (typeof work.projectId !== "string")
-            throw new Error("Pilih project yang aktif.");
-          const [project] = await tx
-            .select()
-            .from(projects)
-            .where(
-              and(
-                eq(projects.id, work.projectId),
-                eq(projects.status, "active"),
-              ),
-            )
-            .for("share");
-          if (!project) throw new Error("Pilih project yang aktif.");
-          workValues = {
-            workType: "project",
-            workNote: null,
-            reportedProjectId: project.id,
-            reportedProjectName: project.name,
           };
         } else {
           const note = typeof work.note === "string" ? work.note.trim() : "";
@@ -349,6 +325,7 @@ export async function recordAttendance(kind, photo, reason = {}, work = {}) {
     const known = [
       "Anda tercatat sakit/izin pada tanggal ini. Hubungi petugas untuk memperbaiki catatan sebelum absen masuk.",
       "Pilih jenis pekerjaan sebelum absen pulang.",
+      "Tanpa penempatan project saat absen masuk, gunakan Operasional dan isi keterangan.",
       "Untuk project lain, pilih Operasional dan isi keterangan.",
       "Pilih project penempatan sebelum absen masuk.",
       "Penempatan sudah berubah. Muat ulang lalu pilih project kembali.",
