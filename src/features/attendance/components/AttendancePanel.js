@@ -33,6 +33,7 @@ export default function AttendancePanel({ initialContext }) {
   const [mode, setMode] = useState("in");
   const [photo, setPhoto] = useState("");
   const [ready, setReady] = useState(false);
+  const [mirrored, setMirrored] = useState(true);
   const [cameraError, setCameraError] = useState("");
   const [opening, setOpening] = useState(false);
   const [pending, setPending] = useState(false);
@@ -131,6 +132,8 @@ export default function AttendancePanel({ initialContext }) {
         return;
       }
       stream.current = media;
+      const facingMode = media.getVideoTracks()[0]?.getSettings?.().facingMode;
+      setMirrored(facingMode !== "environment");
       if (video.current) {
         video.current.srcObject = media;
         await video.current.play();
@@ -188,19 +191,24 @@ export default function AttendancePanel({ initialContext }) {
       const scale = Math.min(1, 1280 / Math.max(cropWidth, cropHeight));
       canvas.width = Math.round(cropWidth * scale);
       canvas.height = Math.round(cropHeight * scale);
-      canvas
-        .getContext("2d")
-        .drawImage(
-          source,
-          (source.videoWidth - cropWidth) / 2,
-          (source.videoHeight - cropHeight) / 2,
-          cropWidth,
-          cropHeight,
-          0,
-          0,
-          canvas.width,
-          canvas.height,
-        );
+      const drawing = canvas.getContext("2d");
+      if (!drawing)
+        throw new Error("Foto belum dapat diproses. Coba ambil ulang.");
+      if (mirrored) {
+        drawing.translate(canvas.width, 0);
+        drawing.scale(-1, 1);
+      }
+      drawing.drawImage(
+        source,
+        (source.videoWidth - cropWidth) / 2,
+        (source.videoHeight - cropHeight) / 2,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
       const data = canvas.toDataURL("image/jpeg", 0.75);
       if (data.length > 900000)
         throw new Error("Foto terlalu besar. Silakan ambil ulang.");
@@ -508,6 +516,7 @@ export default function AttendancePanel({ initialContext }) {
               <>
                 <video
                   ref={video}
+                  data-mirrored={mirrored}
                   autoPlay
                   muted
                   playsInline
