@@ -5,9 +5,9 @@ import { attendances, absences, roles, projects } from "@/lib/server/db/schema";
 import { parseFilters } from "@/features/attendance-history/queries";
 import { shiftDate } from "@/features/dashboard/queries";
 import { countsAsPresent } from "@/lib/shared/attendance-review";
-export function monday(date) {
+export function friday(date) {
   const day = new Date(date + "T00:00:00Z").getUTCDay();
-  return shiftDate(date, -(day === 0 ? 6 : day - 1));
+  return shiftDate(date, -((day + 2) % 7));
 }
 export async function photoRecapData(params = {}) {
   const filters = parseFilters({ ...params, status: "", role: "" });
@@ -107,7 +107,7 @@ export async function photoRecapData(params = {}) {
       });
   const weekly = new Map();
   for (const row of records) {
-    const start = monday(row.workDate);
+    const start = friday(row.workDate);
     if (!weekly.has(start)) weekly.set(start, new Map());
     const key = row.userId;
     const week = weekly.get(start);

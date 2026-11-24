@@ -117,7 +117,7 @@ export async function createPhotoRecapPdf(data) {
       9,
     );
     text(
-      `Minggu ke-${data.weeks.indexOf(week) + 1}: ${week.start} s/d ${week.dates[6]} — Senin–Minggu`,
+      `Minggu ke-${data.weeks.indexOf(week) + 1}: ${week.start} s/d ${week.dates[6]} — Jumat–Kamis`,
       left,
       88,
       tableWidth,

@@ -49,7 +49,7 @@ export default async function Page({ searchParams }) {
       <div className="page-heading">
         <div>
           <h1>Rekap Foto Absensi</h1>
-          <p>Senin–Minggu. Catatan ditolak tidak masuk total kehadiran.</p>
+          <p>Jumat–Kamis. Catatan ditolak tidak masuk total kehadiran.</p>
         </div>
         <a className="admin-button" href={`/api/photo-recap-export?${query}`}>
           Ekspor PDF

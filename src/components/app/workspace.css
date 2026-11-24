@@ -3293,3 +3293,45 @@ body:has(dialog[open]) {
     grid-template-columns: 1fr;
   }
 }
+
+.attendance-correction-dialog {
+  max-width: 680px;
+  width: min(680px, calc(100vw - 32px));
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.correction-fields {
+  display: grid;
+  gap: 16px;
+}
+.correction-fields label {
+  display: grid;
+  gap: 8px;
+}
+.correction-fields input,
+.correction-fields textarea {
+  width: 100%;
+  min-width: 0;
+}
+.correction-fields textarea {
+  min-height: 100px;
+}
+.correction-section {
+  margin-top: 24px;
+  overflow-wrap: anywhere;
+}
+.correction-section > * + * {
+  margin-top: 16px;
+}
+.correction-entry {
+  padding: 16px 0;
+  border-top: 1px solid var(--border, #e6ddd2);
+}
+.correction-entry p {
+  margin-top: 8px;
+}
+.correction-section nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}

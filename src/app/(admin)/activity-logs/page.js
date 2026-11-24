@@ -12,6 +12,7 @@ import { isSystemAdministrator } from "@/features/activity-logs/server";
 export const metadata = { title: "Log Aktivitas" };
 
 const features = {
+  "attendance-corrections": "Koreksi Absensi",
   auth: "Sesi",
   history: "Riwayat Absensi",
   attendance: "Absensi",
@@ -26,6 +27,7 @@ const features = {
   "photo-recap": "Rekap Foto Absensi",
 };
 const actions = {
+  correct_time: "Koreksi Waktu",
   login: "Login",
   export: "Ekspor",
   approve: "Setujui",
